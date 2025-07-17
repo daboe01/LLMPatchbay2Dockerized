@@ -21,12 +21,21 @@ no warnings 'uninitialized';
 
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
+my $prefix = $ENV{NB_PREFIX} || '';
+my $inference_proto = $ENV{NB_PREFIX} ? 'http' : 'https';
+
 # Check for the NB_PREFIX environment variable and set it as the URL prefix.
-if (my $prefix = $ENV{NB_PREFIX})
+if ($prefix ne '') 
 {
     $prefix = "/$prefix" unless $prefix =~ m{^/};
     app->static->prefix($prefix);
-    app->log->info("Serving static files from the '$prefix' prefix.");
+    app->log->info("Serving from the prefix '$prefix'");
+}
+
+sub startup {
+    my $self = shift;
+    $self->log->level('debug'); # Ensure debug messages are visible for UA logging
+    $self->log->info("Application started and log level set to debug.");
 }
 
 # turn browser cache off
@@ -34,10 +43,20 @@ hook after_dispatch => sub {
     my $tx = shift;
     my $e = Mojo::Date->new(time-100);
     $tx->res->headers->header(Expires => $e);
-    $tx->res->headers->header('X-ARGOS-Routing' => '3036');
+    $tx->res->headers->header('X-ARGOS-Routing' => '8888');
 };
 
-get '/LLM/get_data_from_dataset/:dataset_name' => sub
+# Set up routing - either with or without prefix
+my $r = $prefix ? app->routes->under($prefix) : app->routes;
+
+# Redirect root to Frontend
+$r->get('/' => sub {
+    my $self = shift;
+    my $redirect_url = $prefix ? "$prefix/Frontend/index.html" : "/Frontend/index.html";
+    $self->redirect_to($redirect_url);
+});
+
+$r->get('/LLM/get_data_from_dataset/:dataset_name' => sub
 {
     my $self          = shift;
     my $dataset_name  = $self->param('dataset_name');
@@ -48,9 +67,9 @@ get '/LLM/get_data_from_dataset/:dataset_name' => sub
         where embedded_datasets.name = ?
     }, $dataset_name)->hashes;
     $self->render(json => $datapoints);
-};
+});
 
-get '/LLM/get_payload_for_label_from_dataset/:label/:dataset_name' => sub
+$r->get('/LLM/get_payload_for_label_from_dataset/:label/:dataset_name' => sub
 {
     my $self          = shift;
     my $dataset_name  = $self->param('dataset_name');
@@ -63,9 +82,9 @@ get '/LLM/get_payload_for_label_from_dataset/:label/:dataset_name' => sub
     }, $dataset_name, $label)->hash;
 
     $self->render(json => $datapoint);
-};
+});
 
-post '/LLM/get_matches_from_dataset_named/:name' => sub
+$r->post('/LLM/get_matches_from_dataset_named/:name' => sub
 {
     my $self          = shift;
     my $input         = decode 'UTF-8', $self->req->body;
@@ -101,9 +120,9 @@ post '/LLM/get_matches_from_dataset_named/:name' => sub
     };
 
     $self->render(json => $self->pg->db->query($sql, $query_embedding, $dataset->{iddataset}, $top_k)->hashes);
-};
+});
 
-post '/LLM/import_embedding_dataset/:pk' => [pk => qr/\d+/] => sub
+$r->post('/LLM/import_embedding_dataset/:pk' => [pk => qr/\d+/] => sub
 {
     my $self         = shift;
     my $pk           = $self->param('pk');
@@ -155,9 +174,9 @@ post '/LLM/import_embedding_dataset/:pk' => [pk => qr/\d+/] => sub
     }
 
     $self->render(text => 'OK');
-};
+});
 
-post '/LLM/run_stateless/:key' => [key => qr/\d+/] => sub
+$r->post('/LLM/run_stateless/:key' => [key => qr/\d+/] => sub
 {
     my $self     = shift;
     my $idprompt = $self->param('key');
@@ -167,9 +186,9 @@ post '/LLM/run_stateless/:key' => [key => qr/\d+/] => sub
     my $result = $self->get_result_of_block_id($block->{id}, decode 'UTF-8', $self->req->body);
 
     $self->render(text => $result);
-};
+});
 
-post '/LLM/run/:key' => [key=>qr/\d+/] => sub
+$r->post('/LLM/run/:key' => [key=>qr/\d+/] => sub
 {
     my $self    = shift;
     my $idinput = $self->param('key');
@@ -183,9 +202,9 @@ post '/LLM/run/:key' => [key=>qr/\d+/] => sub
     my $o = {result => $result, err => $DBI::errstr};
 
     $self->render(json => $o);
-};
+});
 
-post '/LLM/duplicate_prompt/:id' => [id => qr/\d+/] => sub
+$r->post('/LLM/duplicate_prompt/:id' => [id => qr/\d+/] => sub
 {
     my $self = shift;
     my $id = $self->param('id');
@@ -247,22 +266,22 @@ post '/LLM/duplicate_prompt/:id' => [id => qr/\d+/] => sub
     $tx->commit;
 
     $self->render(json => {err => $DBI::errstr, pk => $new_project_id});
-};
+});
 
 #
 # begin: generic DBI interface (CRUD)
 #
 # fetch all entities
 
-get '/LLM/blocks/idproject/:key' => [key => qr/[0-9]+/i] => sub
+$r->get('/LLM/blocks/idproject/:key' => [key => qr/[0-9]+/i] => sub
 {
     my $self = shift;
     my $key  = $self->param('key');
 
     $self->render(json => $self->pg->db->select('blocks', [qw/*/], {idproject => $key})->hashes);
-};
+});
 
-get '/LLM/:table'=> sub
+$r->get('/LLM/:table'=> sub
 {
     my $self    = shift;
     my $table   = $self->param('table');
@@ -275,11 +294,11 @@ get '/LLM/:table'=> sub
     }
 
     $self->render(json => $self->pg->db->select($table, [qw/*/])->hashes);
-};
+});
 
 # fetch entities by key/value
 
-get '/LLM/settings/id/:key' => [key => qr/[a-z0-9\s\-_\.]+/i] => sub
+$r->get('/LLM/settings/id/:key' => [key => qr/[a-z0-9\s\-_\.]+/i] => sub
 {
     my $self = shift;
     my $id = $self->param('key');
@@ -289,9 +308,9 @@ get '/LLM/settings/id/:key' => [key => qr/[a-z0-9\s\-_\.]+/i] => sub
     my $out = $block->{gui_fields} ? decode_json($block->{output_value}) : {};
     $out->{id} = $id;
     $self->render(json => [$out]);
-};
+});
 
-put '/LLM/settings/id/:key' => [key => qr/[a-z0-9\s\-_\.]+/i] => sub
+$r->put('/LLM/settings/id/:key' => [key => qr/[a-z0-9\s\-_\.]+/i] => sub
 {
     my $self = shift;
     my $id = $self->param('key');
@@ -307,16 +326,16 @@ put '/LLM/settings/id/:key' => [key => qr/[a-z0-9\s\-_\.]+/i] => sub
 
     $self->pg->db->update('blocks', {output_value => encode_json $out}, {id => $id});
     $self->render(json => {err => $DBI::errstr});
-};
+});
 
-get '/LLM/:table/:col/:key' => [col => qr/[a-z_0-9\s]+/i, key => qr/[a-z0-9\s\-_\.]+/i] => sub
+$r->get('/LLM/:table/:col/:key' => [col => qr/[a-z_0-9\s]+/i, key => qr/[a-z0-9\s\-_\.]+/i] => sub
 {
     my $self = shift;
     $self->render(json => $self->pg->db->select($self->param('table'), [qw/*/], {$self->param('col') => $self->param('key')})->hashes);
-};
+});
 
 # update (fixme should be patch)
-put '/LLM/embedded_datasets/id/:key' => [key => qr/\d+/] => sub
+$r->put('/LLM/embedded_datasets/id/:key' => [key => qr/\d+/] => sub
 {
     my $self = shift;
     my $pk   = $self->param('key');
@@ -348,18 +367,18 @@ put '/LLM/embedded_datasets/id/:key' => [key => qr/\d+/] => sub
     }
 
     $self->render(json => {err => $DBI::errstr});
-};
+});
 
 # update (fixme should be patch)
-put '/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
+$r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
 {
     my $self    = shift;
     $self->pg->db->update($self->param('table'), $self->req->json, {$self->param('pk') => $self->param('key')});
     $self->render(json => {err => $DBI::errstr});
-};
+});
 
 # insert
-post '/LLM/:table/:pk'=> sub
+$r->post('/LLM/:table/:pk' => sub
 {
     my $self    = shift;
     my $table   = $self->param('table');
@@ -374,10 +393,10 @@ post '/LLM/:table/:pk'=> sub
     my $id = $self->pg->db->insert($table, $u, {returning => $self->param('pk')})->hash->{id};
 
     $self->render(json => {err => $DBI::errstr, pk => $id});
-};
+});
 
 # delete
-del '/LLM/:table/:pk/:key' => [key=>qr/\d+/] => sub
+$r->delete('/LLM/:table/:pk/:key' => [key=>qr/\d+/] => sub
 {
     my $self    = shift;
     my $id      = $self->param('key');
@@ -385,7 +404,7 @@ del '/LLM/:table/:pk/:key' => [key=>qr/\d+/] => sub
     $self->pg->db->delete($table, {$self->param('pk') => $id});
 
     $self->render(json => {err => $DBI::errstr});
-};
+});
 
 #
 # end: generic DBI interface
@@ -538,8 +557,10 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
             }
         });
 
-        my $tx = $ua->post("https://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
-        # warn Dumper $tx;
+        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
+        if ($tx->res->is_error) {
+          warn Dumper $tx;
+        }
         my $r = $tx->res->json;
 
         return $r->{generated_text} if exists $r->{generated_text};
@@ -884,7 +905,9 @@ helper get_embedding => sub { my ($self, $endpoint, $model, $prompt, $template) 
 
     $ua->on(start => sub {
         my ($ua, $tx) = @_;
-        $tx->req->headers->authorization("Bearer 36a3430b2d9473438a1447b5f24f69fc");
+        if (my $api_key = $ENV{API_BEARER_TOKEN}) {
+            $tx->req->headers->authorization("Bearer $api_key");
+        }
     });
 
     my $tx = $ua->post($endpoint => json => {inputs => $prompt, truncate => Mojo::JSON->true});
@@ -908,7 +931,9 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
     $ua->connect_timeout(0);
     $ua->on(start => sub    {
         my ($ua, $tx) = @_;
-        $tx->req->headers->authorization("Bearer 36a3430b2d9473438a1447b5f24f69fc");
+        if (my $api_key = $ENV{API_BEARER_TOKEN}) {
+            $tx->req->headers->authorization("Bearer $api_key");
+        }
     });
 
     if ($model =~ /gemma/io)
@@ -940,7 +965,10 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
             }
         };
 
-        my $tx = $ua->post("https://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
+        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
+        if ($tx->res->is_error) {
+          warn Dumper $tx;
+        }
         my $r = $tx->res->json;
         $text = $r->{generated_text} if exists $r->{generated_text};
     }
@@ -972,7 +1000,10 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
             }
         };
 
-        my $tx = $ua->post("https://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
+        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
+        if ($tx->res->is_error) {
+          warn Dumper $tx;
+        }
         my $r = $tx->res->json;
         $text = $r->{generated_text} if exists $r->{generated_text};
     }
@@ -983,7 +1014,10 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
             messages => [  {  role => "user", content => $prompt }, {  role => "assistant", content => '<think>'."\n" }  ]
         };
 
-        my $tx = $ua->post("https://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/v1/chat/completions" => json => $params);
+        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/v1/chat/completions" => json => $params);
+        if ($tx->res->is_error) {
+          warn Dumper $tx;
+        }
         my $res = $tx->result;
 
         if ($res->is_success)
@@ -1002,7 +1036,7 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
     return $text;
 };
 
-post '/LLM/upload' => sub {
+$r->post('/LLM/upload' => sub {
     my $self = shift;
     my $upload_dir = '/tmp/upload'; # IMPORTANT: This directory must be writable by the user running the web server.
 
@@ -1067,11 +1101,11 @@ post '/LLM/upload' => sub {
     }
 
     $self->render(status => 200, json => { message => "Upload process completed.", files_processed => \@results });
-};
+});
 
 ###################################################################
 # main()
 
-app->config(hypnotoad => {listen => ['http://*:3036'], workers => 5, heartbeat_timeout => 12000, inactivity_timeout => 12000});
+app->config(hypnotoad => {listen => ['http://*:8888'], workers => 5, heartbeat_timeout => 12000, inactivity_timeout => 12000});
 
 app->start;
