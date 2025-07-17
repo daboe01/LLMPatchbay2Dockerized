@@ -1004,7 +1004,7 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
 
 post '/LLM/upload' => sub {
     my $self = shift;
-    my $upload_dir = '/tmp/upload'; # IMPORTANT: This directory must be writable by the user running the web server.
+    my $upload_dir = '/upload'; # IMPORTANT: This directory must be writable by the user running the web server.
 
     my $uploads = $self->req->uploads('files[]');
 
