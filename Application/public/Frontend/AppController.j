@@ -11,8 +11,35 @@
 
 /////////////////////////////////////////////////////////
 
-HostURL=""
-BaseURL=HostURL+"/";
+// Extract prefix from window.location.pathname
+function extractPrefix() {
+    var pathname = window.location.pathname;
+    
+    // If pathname ends with /Frontend/index.html, extract the prefix
+    if (pathname.endsWith('/Frontend/index.html')) {
+        var prefix = pathname.substring(0, pathname.length - '/Frontend/index.html'.length);
+        return prefix === '' ? '' : prefix;
+    }
+    
+    // If pathname ends with /Frontend/, extract the prefix
+    if (pathname.endsWith('/Frontend/')) {
+        var prefix = pathname.substring(0, pathname.length - '/Frontend/'.length);
+        return prefix === '' ? '' : prefix;
+    }
+    
+    // If pathname ends with /Frontend, extract the prefix
+    if (pathname.endsWith('/Frontend')) {
+        var prefix = pathname.substring(0, pathname.length - '/Frontend'.length);
+        return prefix === '' ? '' : prefix;
+    }
+    
+    // Default: no prefix
+    return '';
+}
+
+var URLPrefix = extractPrefix();
+HostURL = URLPrefix;
+BaseURL = HostURL + "/";
 
 /////////////////////////////////////////////////////////
 
@@ -202,7 +229,7 @@ BaseURL=HostURL+"/";
 
 - (void)performImportCSV:(id)sender suffix:(CPString)suffix
 {
-    var myreq = [CPURLRequest requestWithURL:"/LLM/import_embedding_dataset/" + [embeddedDatasetsController valueForKeyPath:"selection.id"] + suffix];
+    var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/import_embedding_dataset/" + [embeddedDatasetsController valueForKeyPath:"selection.id"] + suffix];
     [myreq setHTTPMethod:"POST"];
     [myreq setHTTPBody:[importCSVText stringValue]];
     [CPURLConnection connectionWithRequest:myreq delegate:nil];
@@ -234,12 +261,12 @@ BaseURL=HostURL+"/";
 
 - (void)downloadDataset:(id)sender
 {
-    [self openWindowWithURL:'/LLM/get_data_from_dataset/' + [embeddedDatasetsController valueForKeyPath:'selection.name'] inWindowID:'download_window'];
+    [self openWindowWithURL:BaseURL + 'LLM/get_data_from_dataset/' + [embeddedDatasetsController valueForKeyPath:'selection.name'] inWindowID:'download_window'];
 }
 
 - (void)duplicatePrompt:(id)sender
 {
-    var myreq = [CPURLRequest requestWithURL:"/LLM/duplicate_prompt/" + [projectsController valueForKeyPath:"selection.id"]];
+    var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/duplicate_prompt/" + [projectsController valueForKeyPath:"selection.id"]];
     [myreq setHTTPMethod:"POST"];
     var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
     [self setButtonBusy:sender];
@@ -252,7 +279,7 @@ BaseURL=HostURL+"/";
 
     setTimeout(function(){
 
-        var myreq = [CPURLRequest requestWithURL:"/LLM/run/" + [inputController valueForKeyPath:"selection.id"]
+        var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/run/" + [inputController valueForKeyPath:"selection.id"]
                                      cachePolicy:CPURLRequestReloadIgnoringLocalCacheData timeoutInterval:500000];
         [myreq setHTTPMethod:"POST"];
         runConnection = [CPURLConnection connectionWithRequest:myreq delegate:self];
@@ -294,7 +321,7 @@ BaseURL=HostURL+"/";
     if (someConnection._senderButton && [someConnection._senderButton isKindOfClass:CPButton])
         [self resetButtonBusy:someConnection._senderButton];
 
-    if ([[[someConnection currentRequest] URL] absoluteString].indexOf("/LLM/duplicate_prompt/") >= 0)
+    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/duplicate_prompt/") >= 0)
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt duplicated." customIcon:TNGrowlIconInfo];
         [projectsController reload];
@@ -328,7 +355,7 @@ BaseURL=HostURL+"/";
     spinnerImg = [[CPImage alloc] initWithContentsOfFile:[CPString stringWithFormat:@"%@%@", [[CPBundle mainBundle] resourcePath], "spinner.gif"]];
 
     // Initialize Uploader
-    myCuploader = [[Cup alloc] initWithURL:"/LLM/upload"];
+    myCuploader = [[Cup alloc] initWithURL:BaseURL + "LLM/upload"];
     queueController = [myCuploader queueController];
     [myCuploader setDropTarget:[[CPApp mainWindow] contentView]];
     [myCuploader setAutoUpload:YES];

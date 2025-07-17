@@ -34,20 +34,20 @@ To ensure your database data **is not lost** when the container stops or restart
 ```bash
 docker run -d \
   --name patchbay-app \
-  -p 3036:3036 \
+  -p 8888:8888 \
   -v patchbay-data:/var/lib/postgresql/17/main \
   -e API_BEARER_TOKEN="your_secret_api_key_here" \
   patchbay
 ```
 *   `-d`: Run in detached mode (in the background).
 *   `--name patchbay-app`: Give the container a memorable name.
-*   `-p 3036:3036`: Map the container's port to your local machine.
+*   `-p 8888:8888`: Map the container's port to your local machine.
 *   `-v patchbay-data:/var/lib/postgresql/17/main`: **Crucial!** This creates a persistent volume named `patchbay-data` for the database.
 *   `-e API_BEARER_TOKEN="..."`: Sets your API key as an environment variable for AI-PIER access.
 
 ### 3. Access The Application
 Open your browser and navigate to:
-**[http://127.0.0.1:3036/Frontend/index.html](http://127.0.0.1:3036/Frontend/index.html)**
+**[http://127.0.0.1:8888/Frontend/index.html](http://127.0.0.1:8888/Frontend/index.html)**
 
 To see logs from the running container:
 ```bash
@@ -105,7 +105,7 @@ Executes a pre-defined pipeline using an entry from the `input_data` table and s
 *   **Example:**
     ```bash
     # Run the pipeline for the input data with id=123
-    curl -X POST http://127.0.0.1:3036/LLM/run/123
+    curl -X POST http://127.0.0.1:8888/LLM/run/123
     ```
 
 #### Run a pipeline statelessly
@@ -122,7 +122,7 @@ Executes a pipeline with a given input without saving the result to the database
     curl -X POST \
       -H "Content-Type: text/plain" \
       -d "What is the capital of France?" \
-      http://127.0.0.1:3036/LLM/run_stateless/45
+      http://127.0.0.1:8888/LLM/run_stateless/45
     ```
 
 ---
@@ -146,7 +146,7 @@ Performs a vector similarity search against a specified dataset.
     # Find the top 3 documents in 'medical_reports' dataset similar to the query
     curl -X POST \
       -d "Patient shows symptoms of high fever and cough" \
-      "http://127.0.0.1:3036/LLM/get_matches_from_dataset_named/medical_reports?top_k=3"
+      "http://127.0.0.1:8888/LLM/get_matches_from_dataset_named/medical_reports?top_k=3"
     ```
 
 #### Import data into a dataset
@@ -165,16 +165,16 @@ Bulk-imports data from a CSV file into an embedding dataset. This triggers the e
     curl -X POST \
       --header "Content-Type: text/csv" \
       --data-binary "@path/to/data.csv" \
-      "http://127.0.0.1:3036/LLM/import_embedding_dataset/1?preserve=1"
+      "http://127.0.0.1:8888/LLM/import_embedding_dataset/1?preserve=1"
     ```
 
 #### Retrieve all data from a dataset
 *   **Endpoint:** `GET /LLM/get_data_from_dataset/:dataset_name`
-*   **Example:** `curl http://127.0.0.1:3036/LLM/get_data_from_dataset/medical_reports`
+*   **Example:** `curl http://127.0.0.1:8888/LLM/get_data_from_dataset/medical_reports`
 
 #### Retrieve a specific data point by label
 *   **Endpoint:** `GET /LLM/get_payload_for_label_from_dataset/:label/:dataset_name`
-*   **Example:** `curl http://127.0.0.1:3036/LLM/get_payload_for_label_from_dataset/report-abc/medical_reports`
+*   **Example:** `curl http://127.0.0.1:8888/LLM/get_payload_for_label_from_dataset/report-abc/medical_reports`
 
 ---
 
@@ -190,6 +190,6 @@ These are specific endpoints for handling complex logic that doesn't fit the gen
     # Change the template for dataset 2, triggering a re-embedding
     curl -X PUT -H "Content-Type: application/json" \
       -d '{"template": "New search query template: %s"}' \
-      http://127.0.0.1:3036/LLM/embedded_datasets/id/2
+      http://127.0.0.1:8888/LLM/embedded_datasets/id/2
     ```
     
