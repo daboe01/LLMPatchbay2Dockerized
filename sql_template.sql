@@ -629,7 +629,9 @@ COPY public.blocks_catalogue (id, type, name, inputs, outputs, default_value, gu
 38	46	JQ	["Input"]	["Output"]	   .[] | .name	\N	\N	0
 24	23	LLM_Ollama	["PromptTemplate", "Input", "Base64"]	["Output"]	\N	<vbox>\n        <hbox>\n           <label halign="min" valign="center">Model:</label>\n           <textField column="model" width="100"/>\n           <hspace/>\n        </hbox>\n        <hbox>\n           <label halign="min" valign="center">Temperature:</label>\n           <textField column="temperature" width="50"/>\n           <hspace/>\n        </hbox>\n        <hbox>\n           <label halign="min" valign="center">Context:</label>\n           <textField column="context" width="100"/>\n           <hspace/>\n        </hbox>\n        <hbox>\n           <label halign="min" valign="center">Max gen.:</label>\n           <textField column="max_gen" width="100"/>\n           <hspace/>\n        </hbox>\n        <hbox>\n           <label halign="min" valign="center">Endpoint:</label>\n           <textField column="endpoint" width="100"/>\n           <hspace/>\n        </hbox>\n</vbox>	["model", "temperature", "context","endpoint", "max_gen"]	0
 39	47	FormatConverter	["Input"]	["Output"]	\N	<vbox>\n    <hbox>\n       <label halign="min" valign="center">Input Format:</label>\n       <textField column="from_format" width="100" placeholder="rtf"/>\n       <hspace/>\n    </hbox>\n    <hbox>\n       <label valign="center">Output Format:</label>\n       <textField column="to_format" width="100" placeholder="markdown"/>\n       <hspace/>\n    </hbox>\n</vbox>	["from_format", "to_format"]	0
-\.
+40    48    LLM_Claude    ["Input", "PromptTemplate", "APIKey"]    ["Output"]    \N    <vbox>\n        <hbox>\n           <label halign="min" valign="center">Model:</label>\n           <textField column="version" width="150" placeholder="claude-3-opus-20240229"/>\n           <hspace/>\n        </hbox>\n        <hbox>\n           <label halign="min" valign="center">Max Tokens:</label>\n           <textField column="max_tokens" width="80" placeholder="4096"/>\n           <hspace/>\n        </hbox>\n        <hbox>\n           <label halign="min" valign="center">Temperature:</label>\n           <textField column="temperature" width="80" placeholder="0.1"/>\n           <hspace/>\n        </hbox>\n</vbox>    ["max_tokens", "temperature", "version"]    1
+41    49    LLM_GPT4    ["Input", "PromptTemplate", "APIKey"]    ["Output"]    \N    <vbox>\n        <hbox>\n           <label halign="min" valign="center">Model:</label>\n           <textField column="model" width="200" placeholder="gpt-4-turbo-preview"/>\n           <hspace/>\n        </hbox>\n<hbox>\n           <label halign="min" valign="center">Temperature:</label>\n           <textField column="temperature" width="80" placeholder="0.1"/>\n           <hspace/>\n        </hbox>\n</vbox>    ["model", "temperature"]    1
+42    50    LLM_Gemini    ["Input", "PromptTemplate", "APIKey", "Base64"]    ["Output"]    \N    <vbox>\n        <hbox>\n           <label halign="min" valign="center">Model:</label>\n<hbox>\n           <label halign="min" valign="center">Temperature:</label>\n           <textField column="temperature" width="80" placeholder="0.1"/>\n           <hspace/>\n        </hbox>\n           <textField column="model" width="200" placeholder="gemini-1.5-pro-latest"/>\n           <hspace/>\n        </hbox>\n</vbox>    ["model", "temperature"]    1\.
 
 
 --
@@ -680,7 +682,7 @@ COPY public.projects (id, name) FROM stdin;
 -- Name: blocks_catalogue_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.blocks_catalogue_id_seq', 39, true);
+SELECT pg_catalog.setval('public.blocks_catalogue_id_seq', 42, true);
 
 
 --

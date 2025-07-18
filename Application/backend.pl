@@ -884,6 +884,119 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         # The temp file is automatically removed when $temp_in_file goes out of scope.
         return $output;
     }
+    elsif ($current_block->{type} eq '48') # LLM_Claude
+    {
+        my $prompt = $self->prepare_llm_prompt($inputs->{Input}, $inputs->{PromptTemplate});
+        my $ua = Mojo::UserAgent->new;
+        $ua->insecure(1); # keine zertifikats-validation
+        $ua->inactivity_timeout(0);
+        $ua->connect_timeout(0);
+
+        ### FIX: Get API Key from block input instead of hardcoded secret ###
+        my $api_key = $inputs->{APIKey};
+        return "ERROR: API Key input is missing for Claude block." unless $api_key;
+
+        my $settings = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
+        my $max_tokens = $settings->{max_tokens} || 20000;
+        my $temperature = $settings->{temperature} || 0.1;
+        my $version = $settings->{version} || 'claude-2';
+
+        my $tx = $ua->post('https://api.anthropic.com/v1/complete' => {
+            'x-api-key' => $api_key,
+            'content-type' => 'application/json'} => json => {
+                # Send the prompt in the 'prompt' parameter
+                prompt => "\n\nHuman: $prompt\n\nAssistant:",
+                model => $version, max_tokens_to_sample => $max_tokens + 0, temperature => $temperature + 0.0, stop_sequences => ["\n\nHuman:"]
+
+            });
+
+        my $res = $tx->result;
+        if ($res->is_success)
+        {
+            return $res->json->{completion};
+        }
+
+        warn Dumper $tx; # Log error for debugging
+        return "ERROR: Claude API call failed. " . ($res->message || 'No response.');
+    }
+    elsif ($current_block->{type} eq '49') # OPENAI
+    {
+        my $prompt = $self->prepare_llm_prompt($inputs->{Input}, $inputs->{PromptTemplate});
+        my $ua = Mojo::UserAgent->new;
+        $ua->insecure(1); # keine zertifikats-validation
+        $ua->inactivity_timeout(0);
+        $ua->connect_timeout(0);
+
+        my $api_key = $inputs->{APIKey};
+        return "ERROR: API Key input is missing for GPT-4 block." unless $api_key;
+
+        my $settings = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
+        my $model  = $settings->{model} || 'gpt-4-1106-preview';
+        my $params =    {
+            model => $model,
+            temperature => $settings->{temperature} || 0.1,
+            messages => [  {  role => "user", content => $prompt }  ]
+        };
+        $ua->on(start => sub {
+            my ($ua, $tx) = @_;
+            $tx->req->headers->authorization("Bearer $api_key");
+        });
+
+        my $res = $ua->post("https://api.openai.com/v1/chat/completions" => json => $params)->result;
+        if ($res->is_success) {
+            return $res->json->{choices}->[0]->{message}->{content};
+        }
+
+        warn Dumper $res; # Log error for debugging
+        return "ERROR: GPT-4 API call failed. " . ($res->json->{error}->{message} || 'No response.');
+    }
+    elsif ($current_block->{type} eq '50') # LLM_Gemini
+    {
+        my $prompt = $self->prepare_llm_prompt($inputs->{Input}, $inputs->{PromptTemplate});
+        my $ua = Mojo::UserAgent->new;
+        $ua->insecure(1); # keine zertifikats-validation
+        $ua->inactivity_timeout(0);
+        $ua->connect_timeout(0);
+
+        my $api_key = $inputs->{APIKey};
+        return "ERROR: API Key input is missing for Gemini block." unless $api_key;
+
+        my $settings = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
+        my $model  = $settings->{model} || 'gemini-1.5-flash-latest'; # gemini-1.5-pro
+
+        my @parts = ({text =>  $prompt});
+        if ($inputs->{Base64})
+        {
+            my $mime_type = 'application/pdf';
+
+            push @parts, {inline_data => {data => $inputs->{Base64}, mime_type => $mime_type}};
+        }
+
+        my $params =    {
+            contents => [{parts => \@parts }],
+            config => {
+                temperature => $settings->{temperature} || 0.1,
+            }
+        };
+
+        my $tx = $ua->post("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$api_key" => json => $params);
+        my $res = $tx->result;
+
+        if ($res->is_success)
+        {
+            return $res->json->{candidates}->[0]->{content}->{parts}->[0]->{text};
+        }
+        else
+        {
+            # Provide a more useful error message back to the user
+            my $error_msg = "ERROR: Gemini API call failed.";
+
+            if (my $error = $res->json->{error}) {
+                $error_msg .= " " . ($error->{message} || '');
+            }
+            return $error_msg;
+        }
+    }
 
     return $result;
 };
