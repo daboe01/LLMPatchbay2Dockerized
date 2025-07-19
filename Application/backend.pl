@@ -792,9 +792,9 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         return undef;
     }
-    elsif ($current_block->{type} eq '44') # global variable
+    elsif ($current_block->{type} eq '51') # global variable
     {
-        my $sth = $self->db->prepare(qq{SELECT max(value) as value FROM global_settings where name = ?});
+        my $sth = $self->db->prepare(q{SELECT max(value) as value FROM global_settings where name = ?});
         $sth->execute($current_block->{output_value});
 
         return $sth->fetchrow_hashref()->{value};
