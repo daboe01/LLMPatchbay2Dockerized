@@ -193,10 +193,10 @@ $r->post('/LLM/run/:key' => [key=>qr/\d+/] => sub
     my $self    = shift;
     my $idinput = $self->param('key');
     my $input   = $self->pg->db->query(q{select * from input_data where id = ?}, $idinput)->hash;
-
+    my $result;
     eval {
         my $block = $self->pg->db->query('select blocks.id, type from blocks join blocks_catalogue on idblock =  blocks_catalogue.id where idproject = ? and outputs is null and type != 8', $input->{idprompt})->hash;
-        my $result = $self->get_result_of_block_id($block->{id}, $input->{content});
+        $result = $self->get_result_of_block_id($block->{id}, $input->{content});
 
         $self->pg->db->insert('output_data', {content => $result, idinput => $idinput, idprompt => $input->{idprompt}});
     }
