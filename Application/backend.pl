@@ -962,7 +962,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         return "ERROR: API Key input is missing for Gemini block." unless $api_key;
 
         my $settings = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
-        my $model  = $settings->{model} || 'gemini-1.5-flash-latest'; # gemini-1.5-pro
+        my $model  = $settings->{model} || 'gemini-2.0-flash'; # gemini-1.5-pro
 
         my @parts = ({text =>  $prompt});
         if ($inputs->{Base64})
