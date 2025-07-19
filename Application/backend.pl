@@ -1000,10 +1000,8 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         {
             # Provide a more useful error message back to the user
             my $error_msg = "ERROR: Gemini API call failed.";
+            $error_msg .= " " . Dumper $res;
 
-            if (my $error = $res->json->{error}) {
-                $error_msg .= " " . ($error->{message} || '');
-            }
             return $error_msg;
         }
     }
