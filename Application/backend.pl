@@ -194,14 +194,20 @@ $r->post('/LLM/run/:key' => [key=>qr/\d+/] => sub
     my $idinput = $self->param('key');
     my $input   = $self->pg->db->query(q{select * from input_data where id = ?}, $idinput)->hash;
 
-    my $block = $self->pg->db->query('select blocks.id, type from blocks join blocks_catalogue on idblock =  blocks_catalogue.id where idproject = ? and outputs is null and type != 8', $input->{idprompt})->hash;
-    my $result = $self->get_result_of_block_id($block->{id}, $input->{content});
+    eval {
+        my $block = $self->pg->db->query('select blocks.id, type from blocks join blocks_catalogue on idblock =  blocks_catalogue.id where idproject = ? and outputs is null and type != 8', $input->{idprompt})->hash;
+        my $result = $self->get_result_of_block_id($block->{id}, $input->{content});
 
-    $self->pg->db->insert('output_data', {content => $result, idinput => $idinput, idprompt => $input->{idprompt}});
+        $self->pg->db->insert('output_data', {content => $result, idinput => $idinput, idprompt => $input->{idprompt}});
+    }
+    if (my $error = $@) {
+        # The 'eval' block died. Log the real error for debugging.
+        $self->log->error("Error during get_result_of_block_id: $error");
+        # Send a generic error to the user.
+        return $self->render( json   => { result => $error } );
+    }
 
-    my $o = {result => $result, err => $DBI::errstr};
-
-    $self->render(json => $o);
+    $self->render(json => {result => $result, err => $DBI::errstr});
 });
 
 $r->post('/LLM/duplicate_prompt/:id' => [id => qr/\d+/] => sub
@@ -965,6 +971,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         my $model  = $settings->{model} || 'gemini-2.0-flash'; # gemini-1.5-pro
 
         my @parts = ({text =>  $prompt});
+
         if ($inputs->{Base64})
         {
             my $mime_type = 'application/pdf';
