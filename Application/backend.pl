@@ -981,7 +981,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         my $params =    {
             contents => [{parts => \@parts }],
-            config => {
+            generationConfig => {
                 temperature => $settings->{temperature} || 0.1,
             }
         };
