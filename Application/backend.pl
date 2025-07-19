@@ -25,7 +25,7 @@ my $prefix = $ENV{NB_PREFIX} || '';
 my $inference_proto = $ENV{NB_PREFIX} ? 'http' : 'https';
 
 # Check for the NB_PREFIX environment variable and set it as the URL prefix.
-if ($prefix ne '') 
+if ($prefix ne '')
 {
     $prefix = "/$prefix" unless $prefix =~ m{^/};
     app->static->prefix($prefix);
