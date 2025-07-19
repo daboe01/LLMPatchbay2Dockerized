@@ -794,7 +794,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
     }
     elsif ($current_block->{type} eq '51') # global variable
     {
-        return $self->pg->db->query(q{SELECT max(value) as value FROM global_settings where name = ?}, $current_block->{output_value})->hash->{value};
+        return $self->pg->db->query(q{SELECT max(value) as value FROM global_variables where name = ?}, $current_block->{output_value})->hash->{value};
     }
     elsif ($current_block->{type} eq '45') # meona
     {
