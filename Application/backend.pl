@@ -332,12 +332,12 @@ $r->get('/LLM/project/export/:id' => [id => qr/\d+/] => sub {
 $r->post('/LLM/project/import' => sub {
      my $self = shift;
 
-     # 1. Get JSON data from the request body
-     my $import_data = $self->req->json;
+    # 1. Get JSON data from the request body
+    my $import_data = $self->req->json;
 
-     unless ($import_data && ref($import_data) eq 'HASH' && $import_data->{project} && $import_data->{blocks}) {
-         return $self->render(status => 400, json => {error => "Invalid or missing JSON payload. Expected 'project' and 'blocks' keys."});
-     }
+    unless ($import_data && ref($import_data) eq 'HASH' && $import_data->{project} && $import_data->{blocks}) {
+        return $self->render(status => 400, json => {error => "Invalid or missing JSON payload. Expected 'project' and 'blocks' keys."});
+    }
 
     # 2. Use a transaction for an all-or-nothing import
     my $tx = $self->pg->db->begin;
@@ -345,8 +345,8 @@ $r->post('/LLM/project/import' => sub {
     eval {
         # 3. Create the new project and get its ID
         my $new_project_id = $self->pg->db->insert('projects',
-        { name => $import_data->{project}->{name} || 'Imported Project' },
-        { returning => 'id' }
+            { name => $import_data->{project}->{name} || 'Imported Project' },
+            { returning => 'id' }
         )->hash->{id};
 
         my %id_map; # Maps original_id from JSON to new_id in the database
@@ -357,54 +357,62 @@ $r->post('/LLM/project/import' => sub {
             my $new_block_id = $self->pg->db->insert('blocks', {
                 idblock      => $block_data->{idblock},
                 name         => $block_data->{name},
-                # Connections will be set in the second pass. Store empty for now.
-                connections  => '{}',
-                # output_value can be set directly. It doesn't contain project-internal IDs.
-                output_value => encode_json($block_data->{output_value}),
+                connections  => '{}', # Set connections in the second pass
+                # output_value might also be double-encoded, so let's be safe.
+                output_value => (defined $block_data->{output_value} ? $block_data->{output_value} : ''),
                 "originX"    => $block_data->{originX},
                 "originY"    => $block_data->{originY},
                 idproject    => $new_project_id,
                 auxfield     => $block_data->{auxfield},
             }, { returning => 'id' })->hash->{id};
 
-            # Map the old ID to the new one
             $id_map{ $block_data->{original_id} } = $new_block_id;
 
-            # Keep track of the new block for the connection-fixing pass
             push @new_blocks_to_process, {
                 new_id => $new_block_id,
-                connections_data => $block_data->{connections} # This is a Perl hash now
+                connections_data => $block_data->{connections}
             };
         }
 
         # 5. Second Pass: Update connections with the new IDs
         for my $block_to_process (@new_blocks_to_process) {
             my $connections_data = $block_to_process->{connections_data};
-            # Skip if there are no connections to fix
+            
+            # If connections_data is a non-empty string, try to decode it.
+            if ($connections_data && !ref($connections_data)) {
+                eval {
+                    my $decoded = decode_json($connections_data);
+                    # Only accept it if the result is a hash reference
+                    $connections_data = (ref($decoded) eq 'HASH') ? $decoded : {};
+                };
+                if ($@) {
+                    $self->log->warn("Failed to decode connections JSON string for new block " . $block_to_process->{new_id} . ". Error: $@. Ignoring connections.");
+                    $connections_data = {}; # Reset to empty on failure
+                }
+            }
+
+            # Skip if there are no valid connections to fix
             next unless ($connections_data && ref($connections_data) eq 'HASH' && keys %$connections_data);
 
             my $updated_connections = {};
             for my $key (keys %$connections_data) {
                 my $old_target_id = $connections_data->{$key};
                 if (exists $id_map{$old_target_id}) {
-                    # Remap to the new ID
                     $updated_connections->{$key} = $id_map{$old_target_id};
                 } else {
-                    # This could be a connection to a block outside the project, or an error.
-                    # For safety, we can log it and keep the old ID.
                     $self->log->warn("Could not remap connection for target ID '$old_target_id'. It was not part of this import.");
-                    $updated_connections->{$key} = $old_target_id;
+                    $updated_connections->{$key} = $old_target_id; # Keep original if not found
                 }
             }
 
-            # Update the block with the re-mapped connections
+            # Update the block with the re-mapped connections, properly encoded as a JSON string for the DB
             $self->pg->db->update('blocks',
-            { connections => encode_json($updated_connections) },
-            { id => $block_to_process->{new_id} }
+                { connections => encode_json($updated_connections) },
+                { id => $block_to_process->{new_id} }
             );
         }
 
-        # 6. If we got here without errors, commit the transaction
+        # 6. Commit the transaction
         $tx->commit;
 
         # 7. Send success response
@@ -415,16 +423,17 @@ $r->post('/LLM/project/import' => sub {
 
     }; # End of eval
 
-    # 8. If eval failed, rollback and send an error response
+    # 8. Handle errors
     if (my $error = $@) {
         $tx->rollback;
         $self->log->error("Project import failed: $error");
         $self->render(status => 500, json => {
             error => 'Project import failed due to an internal server error.',
-            details => $error
+            details => "$error" # Stringify the error
         });
     }
 });
+
 #
 # begin: generic DBI interface (CRUD)
 #
