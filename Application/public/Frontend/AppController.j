@@ -350,7 +350,7 @@ BaseURL = HostURL + "/";
 
     if (someConnection.isExport)
     {
-        [projectJSON setStringValue:data];
+        [projectJSON setString:data];
         [projectImportExportWindow makeKeyAndOrderFront:nil];
         return;
     }

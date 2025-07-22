@@ -32,7 +32,9 @@
 
     <window title="Project Import/Export" x="60" y="200" width="500" height="400" visible="NO" resizable="YES" id="project_import_export_window">
         <vbox>
-            <textView id="project_json" editable="YES" backgroundColor="white"/>
+            <scrollView hasHorizontalScroller="NO" backgroundColor="white">
+                <textView id="project_json" editable="YES" backgroundColor="white"/>
+            </scrollView>
             <hbox>
                 <button title="Import" target="#CPOwner" action="importProject:"/>
             </hbox>
