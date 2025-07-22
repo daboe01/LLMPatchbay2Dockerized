@@ -369,7 +369,10 @@ BaseURL = HostURL + "/";
     if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/duplicate_prompt/") >= 0)
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt duplicated." customIcon:TNGrowlIconInfo];
-        [projectsController fullyReloadAsync];
+        var entity = projectsController._entity;
+        entity._pkcache = [];
+        [projectsController setContent:[entity allObjects]];
+
         return;
     }
 
