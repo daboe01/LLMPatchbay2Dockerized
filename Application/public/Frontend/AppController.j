@@ -350,7 +350,10 @@ BaseURL = HostURL + "/";
 
     if (someConnection.isExport)
     {
-        [projectJSON setString:data];
+        var responseString = [[CPString alloc] initWithData:data encoding:CPUTF8StringEncoding];
+        var responseObject = JSON.parse(responseString);
+        var prettyJSON = JSON.stringify(responseObject, null, 4); // 4 spaces for indentation
+        [projectJSON setStringValue:prettyJSON];
         [projectImportExportWindow makeKeyAndOrderFront:nil];
         return;
     }

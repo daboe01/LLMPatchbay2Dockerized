@@ -446,8 +446,8 @@ $r->get('/LLM/project/export/:id' => [id => qr/\d+/] => sub {
             original_id  => $block->{id},
             idblock      => $block->{idblock},
             name         => $block->{name},
-            connections  => $block->{connections},
-            output_value => $block->{output_value},
+            connections  => eval { decode_json($block->{connections}) } || {},
+            output_value => eval { decode_json($block->{output_value}) },
             originX      => $block->{originX},
             originY      => $block->{originY},
             auxfield     => $block->{auxfield},
@@ -492,19 +492,20 @@ $r->post('/LLM/project/import' => sub {
         )->hash->{id};
 
         my %id_map; # Maps original_id from JSON to new_id in the database
-        my @new_blocks; # Store info about newly created blocks for the second pass
+        my @new_blocks_to_process; # Store info for the second pass
 
         # 4. First Pass: Create all blocks and build the ID map
         for my $block_data (@{ $import_data->{blocks} }) {
             my $new_block_id = $self->pg->db->insert('blocks', {
                 idblock      => $block_data->{idblock},
                 name         => $block_data->{name},
-                # Connections will be updated in the second pass
-                connections  => $block_data->{connections}, # Store temporarily
-                output_value => $block_data->{output_value},
+                # Connections will be set in the second pass. Store empty for now.
+                connections  => '{}',
+                # output_value can be set directly. It doesn't contain project-internal IDs.
+                output_value => encode_json($block_data->{output_value}),
                 "originX"    => $block_data->{originX},
                 "originY"    => $block_data->{originY},
-                idproject    => $new_project_id, # Link to the new project
+                idproject    => $new_project_id,
                 auxfield     => $block_data->{auxfield},
             }, { returning => 'id' })->hash->{id};
 
@@ -512,24 +513,21 @@ $r->post('/LLM/project/import' => sub {
             $id_map{ $block_data->{original_id} } = $new_block_id;
 
             # Keep track of the new block for the connection-fixing pass
-            push @new_blocks, {
+            push @new_blocks_to_process, {
                 new_id => $new_block_id,
-                connections_json => $block_data->{connections}
+                connections_data => $block_data->{connections} # This is a Perl hash now
             };
         }
 
         # 5. Second Pass: Update connections with the new IDs
-        for my $new_block (@new_blocks) {
-            my $connections_json = $new_block->{connections_json};
+        for my $block_to_process (@new_blocks_to_process) {
+            my $connections_data = $block_to_process->{connections_data};
             # Skip if there are no connections to fix
-            next unless ($connections_json && $connections_json ne '{}');
-
-            my $decoded_connections = eval { decode_json($connections_json) };
-            next unless ($decoded_connections && ref($decoded_connections) eq 'HASH');
+            next unless ($connections_data && ref($connections_data) eq 'HASH' && keys %$connections_data);
 
             my $updated_connections = {};
-            for my $key (keys %$decoded_connections) {
-                my $old_target_id = $decoded_connections->{$key};
+            for my $key (keys %$connections_data) {
+                my $old_target_id = $connections_data->{$key};
                 if (exists $id_map{$old_target_id}) {
                     # Remap to the new ID
                     $updated_connections->{$key} = $id_map{$old_target_id};
@@ -544,7 +542,7 @@ $r->post('/LLM/project/import' => sub {
             # Update the block with the re-mapped connections
             $self->pg->db->update('blocks',
             { connections => encode_json($updated_connections) },
-            { id => $new_block->{new_id} }
+            { id => $block_to_process->{new_id} }
             );
         }
 
