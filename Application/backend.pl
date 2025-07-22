@@ -277,6 +277,154 @@ $r->post('/LLM/duplicate_prompt/:id' => [id => qr/\d+/] => sub
     $self->render(json => {err => $DBI::errstr, pk => $new_project_id});
 });
 
+# Export a full project definition as JSON for transfer/backup
+$r->get('/LLM/project/export/:id' => [id => qr/\d+/] => sub {
+    my $self = shift;
+    my $id = $self->param('id');
+
+    # 1. Fetch project details
+    my $project = $self->pg->db->query('SELECT name FROM projects WHERE id = ?', $id)->hash;
+
+    unless ($project) {
+        return $self->render(status => 404, json => {error => "Project with ID $id not found."});
+    }
+
+    # 2. Fetch all blocks for the project
+    # We select all columns needed to fully reconstruct the blocks.
+    my $blocks = $self->pg->db->query(
+                                      'SELECT id, idblock, name, connections, output_value, "originX", "originY", auxfield FROM blocks WHERE idproject = ? ORDER BY id',
+                                      $id
+                                      )->hashes;
+
+    # 3. Prepare the blocks for export, renaming 'id' to 'original_id'
+    # This is critical for the import process to rebuild connections correctly.
+    my @exported_blocks;
+    for my $block (@$blocks) {
+        push @exported_blocks, {
+            original_id  => $block->{id},
+            idblock      => $block->{idblock},
+            name         => $block->{name},
+            connections  => eval { decode_json($block->{connections}) } || {},
+            output_value => eval { decode_json($block->{output_value}) } || '',
+            originX      => $block->{originX},
+            originY      => $block->{originY},
+            auxfield     => $block->{auxfield},
+        };
+    }
+
+    # 4. Assemble the final export data structure
+    my $export_data = {
+        project => {
+            name => $project->{name}
+        },
+        blocks => \@exported_blocks
+    };
+
+    # 5. Render as JSON
+    # You can also set a Content-Disposition header to suggest a filename.
+    my $filename = "patchbay_project_${id}_" . ($project->{name} =~ s/[^a-zA-Z0-9_.-]+/_/gr) . ".json";
+    $self->res->headers->content_disposition("attachment; filename=\"$filename\"");
+
+    $self->render(json => $export_data);
+});
+
+# Import a project from a JSON definition
+$r->post('/LLM/project/import' => sub {
+     my $self = shift;
+
+     # 1. Get JSON data from the request body
+     my $import_data = $self->req->json;
+
+     unless ($import_data && ref($import_data) eq 'HASH' && $import_data->{project} && $import_data->{blocks}) {
+         return $self->render(status => 400, json => {error => "Invalid or missing JSON payload. Expected 'project' and 'blocks' keys."});
+     }
+
+    # 2. Use a transaction for an all-or-nothing import
+    my $tx = $self->pg->db->begin;
+
+    eval {
+        # 3. Create the new project and get its ID
+        my $new_project_id = $self->pg->db->insert('projects',
+        { name => $import_data->{project}->{name} || 'Imported Project' },
+        { returning => 'id' }
+        )->hash->{id};
+
+        my %id_map; # Maps original_id from JSON to new_id in the database
+        my @new_blocks_to_process; # Store info for the second pass
+
+        # 4. First Pass: Create all blocks and build the ID map
+        for my $block_data (@{ $import_data->{blocks} }) {
+            my $new_block_id = $self->pg->db->insert('blocks', {
+                idblock      => $block_data->{idblock},
+                name         => $block_data->{name},
+                # Connections will be set in the second pass. Store empty for now.
+                connections  => '{}',
+                # output_value can be set directly. It doesn't contain project-internal IDs.
+                output_value => encode_json($block_data->{output_value}),
+                "originX"    => $block_data->{originX},
+                "originY"    => $block_data->{originY},
+                idproject    => $new_project_id,
+                auxfield     => $block_data->{auxfield},
+            }, { returning => 'id' })->hash->{id};
+
+            # Map the old ID to the new one
+            $id_map{ $block_data->{original_id} } = $new_block_id;
+
+            # Keep track of the new block for the connection-fixing pass
+            push @new_blocks_to_process, {
+                new_id => $new_block_id,
+                connections_data => $block_data->{connections} # This is a Perl hash now
+            };
+        }
+
+        # 5. Second Pass: Update connections with the new IDs
+        for my $block_to_process (@new_blocks_to_process) {
+            my $connections_data = $block_to_process->{connections_data};
+            # Skip if there are no connections to fix
+            next unless ($connections_data && ref($connections_data) eq 'HASH' && keys %$connections_data);
+
+            my $updated_connections = {};
+            for my $key (keys %$connections_data) {
+                my $old_target_id = $connections_data->{$key};
+                if (exists $id_map{$old_target_id}) {
+                    # Remap to the new ID
+                    $updated_connections->{$key} = $id_map{$old_target_id};
+                } else {
+                    # This could be a connection to a block outside the project, or an error.
+                    # For safety, we can log it and keep the old ID.
+                    $self->log->warn("Could not remap connection for target ID '$old_target_id'. It was not part of this import.");
+                    $updated_connections->{$key} = $old_target_id;
+                }
+            }
+
+            # Update the block with the re-mapped connections
+            $self->pg->db->update('blocks',
+            { connections => encode_json($updated_connections) },
+            { id => $block_to_process->{new_id} }
+            );
+        }
+
+        # 6. If we got here without errors, commit the transaction
+        $tx->commit;
+
+        # 7. Send success response
+        $self->render(json => {
+            message => 'Project imported successfully.',
+            new_project_id => $new_project_id
+        });
+
+    }; # End of eval
+
+    # 8. If eval failed, rollback and send an error response
+    if (my $error = $@) {
+        $tx->rollback;
+        $self->log->error("Project import failed: $error");
+        $self->render(status => 500, json => {
+            error => 'Project import failed due to an internal server error.',
+            details => $error
+        });
+    }
+});
 #
 # begin: generic DBI interface (CRUD)
 #
@@ -418,155 +566,6 @@ $r->delete('/LLM/:table/:pk/:key' => [key=>qr/\d+/] => sub
 #
 # end: generic DBI interface
 #
-
-# Export a full project definition as JSON for transfer/backup
-$r->get('/LLM/project/export/:id' => [id => qr/\d+/] => sub {
-    my $self = shift;
-    my $id = $self->param('id');
-
-    # 1. Fetch project details
-    my $project = $self->pg->db->query('SELECT name FROM projects WHERE id = ?', $id)->hash;
-
-    unless ($project) {
-        return $self->render(status => 404, json => {error => "Project with ID $id not found."});
-    }
-
-    # 2. Fetch all blocks for the project
-    # We select all columns needed to fully reconstruct the blocks.
-    my $blocks = $self->pg->db->query(
-                                      'SELECT id, idblock, name, connections, output_value, "originX", "originY", auxfield FROM blocks WHERE idproject = ? ORDER BY id',
-                                      $id
-                                      )->hashes;
-
-    # 3. Prepare the blocks for export, renaming 'id' to 'original_id'
-    # This is critical for the import process to rebuild connections correctly.
-    my @exported_blocks;
-    for my $block (@$blocks) {
-        push @exported_blocks, {
-            original_id  => $block->{id},
-            idblock      => $block->{idblock},
-            name         => $block->{name},
-            connections  => eval { decode_json($block->{connections}) } || {},
-            output_value => eval { decode_json($block->{output_value}) },
-            originX      => $block->{originX},
-            originY      => $block->{originY},
-            auxfield     => $block->{auxfield},
-        };
-    }
-
-    # 4. Assemble the final export data structure
-    my $export_data = {
-        project => {
-            name => $project->{name}
-        },
-        blocks => \@exported_blocks
-    };
-
-    # 5. Render as JSON
-    # You can also set a Content-Disposition header to suggest a filename.
-    my $filename = "patchbay_project_${id}_" . ($project->{name} =~ s/[^a-zA-Z0-9_.-]+/_/gr) . ".json";
-    $self->res->headers->content_disposition("attachment; filename=\"$filename\"");
-
-    $self->render(json => $export_data);
-});
-
-# Import a project from a JSON definition
-$r->post('/LLM/project/import' => sub {
-     my $self = shift;
-
-     # 1. Get JSON data from the request body
-     my $import_data = $self->req->json;
-
-     unless ($import_data && ref($import_data) eq 'HASH' && $import_data->{project} && $import_data->{blocks}) {
-         return $self->render(status => 400, json => {error => "Invalid or missing JSON payload. Expected 'project' and 'blocks' keys."});
-     }
-
-    # 2. Use a transaction for an all-or-nothing import
-    my $tx = $self->pg->db->begin;
-
-    eval {
-        # 3. Create the new project and get its ID
-        my $new_project_id = $self->pg->db->insert('projects',
-        { name => $import_data->{project}->{name} || 'Imported Project' },
-        { returning => 'id' }
-        )->hash->{id};
-
-        my %id_map; # Maps original_id from JSON to new_id in the database
-        my @new_blocks_to_process; # Store info for the second pass
-
-        # 4. First Pass: Create all blocks and build the ID map
-        for my $block_data (@{ $import_data->{blocks} }) {
-            my $new_block_id = $self->pg->db->insert('blocks', {
-                idblock      => $block_data->{idblock},
-                name         => $block_data->{name},
-                # Connections will be set in the second pass. Store empty for now.
-                connections  => '{}',
-                # output_value can be set directly. It doesn't contain project-internal IDs.
-                output_value => encode_json($block_data->{output_value}),
-                "originX"    => $block_data->{originX},
-                "originY"    => $block_data->{originY},
-                idproject    => $new_project_id,
-                auxfield     => $block_data->{auxfield},
-            }, { returning => 'id' })->hash->{id};
-
-            # Map the old ID to the new one
-            $id_map{ $block_data->{original_id} } = $new_block_id;
-
-            # Keep track of the new block for the connection-fixing pass
-            push @new_blocks_to_process, {
-                new_id => $new_block_id,
-                connections_data => $block_data->{connections} # This is a Perl hash now
-            };
-        }
-
-        # 5. Second Pass: Update connections with the new IDs
-        for my $block_to_process (@new_blocks_to_process) {
-            my $connections_data = $block_to_process->{connections_data};
-            # Skip if there are no connections to fix
-            next unless ($connections_data && ref($connections_data) eq 'HASH' && keys %$connections_data);
-
-            my $updated_connections = {};
-            for my $key (keys %$connections_data) {
-                my $old_target_id = $connections_data->{$key};
-                if (exists $id_map{$old_target_id}) {
-                    # Remap to the new ID
-                    $updated_connections->{$key} = $id_map{$old_target_id};
-                } else {
-                    # This could be a connection to a block outside the project, or an error.
-                    # For safety, we can log it and keep the old ID.
-                    $self->log->warn("Could not remap connection for target ID '$old_target_id'. It was not part of this import.");
-                    $updated_connections->{$key} = $old_target_id;
-                }
-            }
-
-            # Update the block with the re-mapped connections
-            $self->pg->db->update('blocks',
-            { connections => encode_json($updated_connections) },
-            { id => $block_to_process->{new_id} }
-            );
-        }
-
-        # 6. If we got here without errors, commit the transaction
-        $tx->commit;
-
-        # 7. Send success response
-        $self->render(json => {
-            message => 'Project imported successfully.',
-            new_project_id => $new_project_id
-        });
-
-    }; # End of eval
-
-    # 8. If eval failed, rollback and send an error response
-    if (my $error = $@) {
-        $tx->rollback;
-        $self->log->error("Project import failed: $error");
-        $self->render(status => 500, json => {
-            error => 'Project import failed due to an internal server error.',
-            details => $error
-        });
-    }
-});
 
 helper get_result_of_patchbay_named => sub { my ($self, $name, $input) = @_;
 
