@@ -353,7 +353,7 @@ BaseURL = HostURL + "/";
         var responseString = data;
         var responseObject = JSON.parse(responseString);
         var prettyJSON = JSON.stringify(responseObject, null, 4); // 4 spaces for indentation
-        [projectJSON setStringValue:prettyJSON];
+        [projectJSON setString:prettyJSON];
         [projectImportExportWindow makeKeyAndOrderFront:nil];
         return;
     }
