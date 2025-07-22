@@ -360,7 +360,10 @@ BaseURL = HostURL + "/";
 
     if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/project/import") >= 0)
     {
-        [projectsController reload];
+        var entity = projectsController._entity;
+        entity._pkcache = [];
+        [projectsController setContent:[entity allObjects]];
+
         [projectImportExportWindow orderOut:nil];
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Project imported." customIcon:TNGrowlIconInfo];
         return;
@@ -369,10 +372,7 @@ BaseURL = HostURL + "/";
     if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/duplicate_prompt/") >= 0)
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt duplicated." customIcon:TNGrowlIconInfo];
-        var entity = projectsController._entity;
-        entity._pkcache = [];
-        [projectsController setContent:[entity allObjects]];
-
+        [projectsController reload];
         return;
     }
 
