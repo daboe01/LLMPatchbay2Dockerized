@@ -117,6 +117,8 @@ BaseURL = HostURL + "/";
     id  laceView;
     id  inputWindow;
     id  inputText;
+    id  projectImportExportWindow;
+    id  projectJSON;
 
     id  laceViewController;
     id  projectsController
@@ -289,6 +291,31 @@ BaseURL = HostURL + "/";
     }, 250);
 }
 
+- (void)showImportExportWindow:(id)sender
+{
+    [projectImportExportWindow makeKeyAndOrderFront:sender];
+}
+
+- (void)exportProject:(id)sender
+{
+    var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/project/export/" + [projectsController valueForKeyPath:"selection.id"]];
+    var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
+    [self setButtonBusy:sender];
+    connection._senderButton = sender;
+    connection.isExport = YES;
+}
+
+- (void)importProject:(id)sender
+{
+    var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/project/import"];
+    [myreq setHTTPMethod:"POST"];
+    [myreq setHTTPBody:[projectJSON stringValue]];
+    var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
+    [self setButtonBusy:sender];
+    connection._senderButton = sender;
+}
+
+
 - (void)insertInput:(id)sender
 {
     [inputController insert:sender]
@@ -320,6 +347,21 @@ BaseURL = HostURL + "/";
 {
     if (someConnection._senderButton && [someConnection._senderButton isKindOfClass:CPButton])
         [self resetButtonBusy:someConnection._senderButton];
+
+    if (someConnection.isExport)
+    {
+        [projectJSON setStringValue:data];
+        [projectImportExportWindow makeKeyAndOrderFront:nil];
+        return;
+    }
+
+    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/project/import") >= 0)
+    {
+        [projectsController reload];
+        [projectImportExportWindow orderOut:nil];
+        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Project imported." customIcon:TNGrowlIconInfo];
+        return;
+    }
 
     if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/duplicate_prompt/") >= 0)
     {

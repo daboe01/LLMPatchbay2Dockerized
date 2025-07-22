@@ -30,6 +30,15 @@
         </vbox>
     </window>
 
+    <window title="Project Import/Export" x="60" y="200" width="500" height="400" visible="NO" resizable="YES" id="project_import_export_window">
+        <vbox>
+            <textView id="project_json" editable="YES" backgroundColor="white"/>
+            <hbox>
+                <button title="Import" target="#CPOwner" action="importProject:"/>
+            </hbox>
+        </vbox>
+    </window>
+
 
     <window id="add_blocks_window" visible="NO" width="400" height="600">
         <vbox>
@@ -67,6 +76,8 @@
                                 <hbox>
                                     <button title="New..." target="#CPOwner" action="addBlocks:"/>
                                     <button title="Delete" target="#CPOwner" action="removeBlocks:"/>
+                                    <button title="Import" target="#CPOwner" action="showImportExportWindow:"/>
+                                    <button title="Export" target="#CPOwner" action="exportProject:"/>
                                     <hspace/>
                                 </hbox>
                                 <scrollView>
@@ -179,6 +190,8 @@
     <outlet source="CPOwner" target="input_text" label="inputText"/>
     <outlet source="CPOwner" target="import_csv_text" label="importCSVText"/>
     <outlet source="CPOwner" target="playground_tv" label="playgroundTV"/>
+    <outlet source="CPOwner" target="project_import_export_window" label="projectImportExportWindow"/>
+    <outlet source="CPOwner" target="project_json" label="projectJSON"/>
 </connectors>
 
 
