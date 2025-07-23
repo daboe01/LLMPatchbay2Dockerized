@@ -552,7 +552,7 @@ $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
         $self->pg->db->update($self->param('table'), $u, {$self->param('pk') => $self->param('key')});
     };
     if ($@) {
-        return $self->render(json => {err => $self->req->body});
+        return $self->render(json => {err => decode 'UTF-8', $self->req->body});
     }
 
     $self->render(json => {err => $DBI::errstr});
