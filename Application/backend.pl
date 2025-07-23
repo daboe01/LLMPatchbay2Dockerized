@@ -552,7 +552,7 @@ $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
         $self->pg->db->update($self->param('table'), $u, {$self->param('pk') => $self->param('key')});
     };
     if ($@) {
-        return $self->render(json => {err => '2. '. $@});
+        return $self->render(json => {err => "$Mojolicious::VERSION, mojo_pg => $Mojo::Pg::VERSION, $@"});
     }
 
     $self->render(json => {err => $DBI::errstr});
