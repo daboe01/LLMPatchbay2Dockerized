@@ -542,7 +542,7 @@ $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
     my $u;
 
     eval {
-        $u = decode_json($self->req->body); # $self->req->json;
+        $u = $self->req->json;
     };
     if ($@) {
         return $self->render(json => {err => '1. '.$@});
@@ -552,7 +552,7 @@ $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
         $self->pg->db->update($self->param('table'), $u, {$self->param('pk') => $self->param('key')});
     };
     if ($@) {
-        return $self->render(json => {err => decode 'UTF-8', $self->req->body});
+        return $self->render(json => {err => '2. '. $@});
     }
 
     $self->render(json => {err => $DBI::errstr});
