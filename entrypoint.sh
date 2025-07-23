@@ -7,7 +7,7 @@ cd /usr/src/app
 NEED_INIT=false
 PGDIR=/var/lib/postgresql/17/main
 if [ ! -f "$PGDIR"/PG_VERSION ]; then
-  /usr/lib/postgresql/17/bin/initdb -D $PGDIR
+  /usr/lib/postgresql/17/bin/initdb --encoding=UTF8 -D $PGDIR
   NEED_INIT=true
 fi
 
