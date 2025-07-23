@@ -19,14 +19,7 @@ use Archive::Zip;
 
 no warnings 'uninitialized';
 
-helper pg => sub {
-    state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay')
-    $pg->after_connect(sub {
-                                my $dbh = shift;
-                                $dbh->do('SET client_encoding TO UTF8');
-                            });
-
-};
+helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
 my $prefix = $ENV{NB_PREFIX} || '';
 my $inference_proto = $ENV{NB_PREFIX} ? 'http' : 'https';
