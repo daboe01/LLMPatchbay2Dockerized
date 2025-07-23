@@ -542,7 +542,7 @@ $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
     my $u;
 
     eval {
-        $u = $self->req->json;
+        $u = decode_json($self->req->body); # $self->req->json;
     };
     if ($@) {
         return $self->render(json => {err => '1. '.$@});
