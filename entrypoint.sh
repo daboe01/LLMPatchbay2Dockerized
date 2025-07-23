@@ -18,7 +18,7 @@ chmod 700 /var/lib/postgresql/17/main
 if [ "$NEED_INIT" = true ]; then
   until pg_isready -U postgres; do echo "Waiting for PostgreSQL..."; sleep 2; done
   psql -U postgres --command "CREATE USER docker WITH SUPERUSER PASSWORD 'docker';"
-  createdb -U docker --encoding=UTF8  --locale=C.UTF-8 llm_patchbay
+  createdb -U docker --encoding=UTF8  --locale=de_DE.UTF-8 llm_patchbay
   psql -U docker llm_patchbay < sql_template.sql
 fi
 
