@@ -539,22 +539,7 @@ $r->put('/LLM/embedded_datasets/id/:key' => [key => qr/\d+/] => sub
 $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
 {
     my $self    = shift;
-    my $u;
-
-    eval {
-        $u = $self->req->json;
-    };
-    if ($@) {
-        return $self->render(json => {err => '1. '.$@});
-    }
-
-    eval {
-        $self->pg->db->update($self->param('table'), $u, {$self->param('pk') => $self->param('key')});
-    };
-    if ($@) {
-        return $self->render(json => {err => '2. '. $@});
-    }
-
+    $self->pg->db->update($self->param('table'), $self->req->json, {$self->param('pk') => $self->param('key')});
     $self->render(json => {err => $DBI::errstr});
 });
 
