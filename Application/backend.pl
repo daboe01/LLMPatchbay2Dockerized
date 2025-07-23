@@ -19,7 +19,7 @@ use Archive::Zip;
 
 no warnings 'uninitialized';
 
-helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay?client_encoding=utf8') };
+helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
 my $prefix = $ENV{NB_PREFIX} || '';
 my $inference_proto = $ENV{NB_PREFIX} ? 'http' : 'https';
@@ -539,13 +539,20 @@ $r->put('/LLM/embedded_datasets/id/:key' => [key => qr/\d+/] => sub
 $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
 {
     my $self    = shift;
+    my $u;
 
     eval {
-
-        $self->pg->db->update($self->param('table'), $self->req->json, {$self->param('pk') => $self->param('key')});
+        $u = $self->req->json;
     };
     if ($@) {
-        return $self->render(json => {err => $@});
+        return $self->render(json => {err => '1. '.$@});
+    }
+
+    eval {
+        $self->pg->db->update($self->param('table'), $u, {$self->param('pk') => $self->param('key')});
+    };
+    if ($@) {
+        return $self->render(json => {err => '2. '. $@});
     }
 
     $self->render(json => {err => $DBI::errstr});
