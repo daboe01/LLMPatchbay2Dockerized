@@ -549,7 +549,7 @@ $r->put('/LLM/:table/:pk/:key' => [key => qr/\d+/] => sub
     }
 
     eval {
-        $self->pg->db->query('SET client_encoding TO UTF8');
+        $self->pg->db->options({pg_client_encoding => 'UTF8'});
         $self->pg->db->update($self->param('table'), $u, {$self->param('pk') => $self->param('key')});
     };
     if ($@) {
