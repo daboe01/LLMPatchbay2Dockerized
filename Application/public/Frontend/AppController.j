@@ -282,7 +282,7 @@ BaseURL = HostURL + "/";
     setTimeout(function(){
 
         var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/run/" + [inputController valueForKeyPath:"selection.id"]
-                                     cachePolicy:CPURLRequestReloadIgnoringLocalCacheData timeoutInterval:500000];
+                                     cachePolicy:CPURLRequestReloadIgnoringLocalCacheData timeoutInterval:5000000];
         [myreq setHTTPMethod:"POST"];
         runConnection = [CPURLConnection connectionWithRequest:myreq delegate:self];
 
