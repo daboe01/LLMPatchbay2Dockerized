@@ -41,6 +41,20 @@
         </vbox>
     </window>
 
+    <window id="importFromUploadWindow" title="Import from Upload" size="300 150" center="true">
+        <vbox>
+            <hbox>
+                <label>Prompt:</label>
+                <popUpButton valueBinding="#CPOwner.importPromptID" itemsBinding="#CPOwner.projectsController.arrangedObjects.name"/>
+                <hspace/>
+            </hbox>
+           <hbox>
+                <button title="Ok" action="performImportFromUpload:" target="CPOwner" />
+                <button title="Cancel" action="cancelImportFromUpload:" target="CPOwner" />
+                <hspace/>
+            </hbox>
+        </vbox>
+    </window>
 
     <window id="add_blocks_window" visible="NO" width="400" height="600">
         <vbox>
@@ -78,7 +92,8 @@
                                 <hbox>
                                     <button title="New..." target="#CPOwner" action="addBlocks:"/>
                                     <button title="Delete" target="#CPOwner" action="removeBlocks:"/>
-                                    <button title="Import" target="#CPOwner" action="showImportExportWindow:"/>
+                                    <menuitem title="Import/Export..." action="showImportExportWindow:" key="" target="CPOwner" />
+                                    <menuitem title="Import from upload..." action="importFromUpload:" key="" target="CPOwner" />
                                     <button title="Export" target="#CPOwner" action="exportProject:"/>
                                     <hspace/>
                                 </hbox>
@@ -193,6 +208,7 @@
     <outlet source="CPOwner" target="import_csv_text" label="importCSVText"/>
     <outlet source="CPOwner" target="playground_tv" label="playgroundTV"/>
     <outlet source="CPOwner" target="project_import_export_window" label="projectImportExportWindow"/>
+    <outlet source="CPOwner" target="importFromUploadWindow" label="importFromUploadWindow"/>
     <outlet source="CPOwner" target="project_json" label="projectJSON"/>
 </connectors>
 

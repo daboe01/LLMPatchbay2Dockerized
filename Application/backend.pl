@@ -1378,6 +1378,30 @@ $r->post('/LLM/upload' => sub {
     $self->render(status => 200, json => { message => "Upload process completed.", files_processed => \@results });
 });
 
+$r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
+    my $self = shift;
+    my $idproject = $self->param('id');
+    my $upload_dir = '/upload';
+
+    my $dir = Mojo::File->new($upload_dir);
+    my @files = $dir->list->each;
+
+    foreach my $file (@files) {
+        my $content = $file->slurp;
+        my $filename = $file->basename;
+
+        $self->pg->db->insert('input_data', {
+            title => $filename,
+            content => $content,
+            idprompt => $idproject
+        });
+
+        $file->remove;
+    }
+
+    $self->render(json => {status => 'ok'});
+});
+
 ###################################################################
 # main()
 

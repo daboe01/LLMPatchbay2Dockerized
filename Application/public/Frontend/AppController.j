@@ -118,6 +118,7 @@ BaseURL = HostURL + "/";
     id  inputWindow;
     id  inputText;
     id  projectImportExportWindow;
+    id  importFromUploadWindow;
     id  projectJSON;
 
     id  laceViewController;
@@ -148,6 +149,7 @@ BaseURL = HostURL + "/";
     id myCuploader;
     id queueController;
 
+    int importPromptID;
 }
 
 // this is just to force the prompts popup items in the playground such in case a new prompt is added and the user wants to test it immediately
@@ -313,6 +315,25 @@ BaseURL = HostURL + "/";
     var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
     [self setButtonBusy:sender];
     connection._senderButton = sender;
+}
+
+- (void)importFromUpload:(id)sender
+{
+    [importFromUploadWindow makeKeyAndOrderFront:sender];
+}
+
+- (void)performImportFromUpload:(id)sender
+{
+    var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/import_from_upload/" + importPromptID];
+    [myreq setHTTPMethod:"POST"];
+    var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
+
+    [importFromUploadWindow orderOut:sender];
+}
+
+- (void)cancelImportFromUpload:(id)sender
+{
+    [importFromUploadWindow orderOut:sender];
 }
 
 
