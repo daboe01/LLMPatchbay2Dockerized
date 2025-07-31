@@ -117,7 +117,7 @@
                                     </tableView>
                                 </scrollView>
                                 <ButtonBar target="#CPOwner.inputController" minusButtonAction="remove:" plusButtonAction="insert:" actionsButton="YES">
-                                    <popUpButtonItem title="Import from upload..." action="importFromUpload:" key="" target="CPOwner" />
+                                    <popUpButtonItem title="Import from upload..." action="importFromUpload:" target="#CPOwner" />
                                 </ButtonBar>
                             </vbox>
 
