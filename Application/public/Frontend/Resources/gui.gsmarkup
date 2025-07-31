@@ -92,8 +92,6 @@
                                 <hbox>
                                     <button title="New..." target="#CPOwner" action="addBlocks:"/>
                                     <button title="Delete" target="#CPOwner" action="removeBlocks:"/>
-                                    <menuitem title="Import/Export..." action="showImportExportWindow:" key="" target="CPOwner" />
-                                    <menuitem title="Import from upload..." action="importFromUpload:" key="" target="CPOwner" />
                                     <button title="Export" target="#CPOwner" action="exportProject:"/>
                                     <hspace/>
                                 </hbox>
@@ -119,6 +117,7 @@
                                     </tableView>
                                 </scrollView>
                                 <ButtonBar target="#CPOwner.inputController" minusButtonAction="remove:" plusButtonAction="insert:" actionsButton="YES">
+                                    <popUpButtonItem title="Import from upload..." action="importFromUpload:" key="" target="CPOwner" />
                                 </ButtonBar>
                             </vbox>
 
