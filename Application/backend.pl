@@ -1399,7 +1399,7 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
         $file->remove;
     }
 
-    $self->render(json => {status => 'ok'});
+    $self->render(text => 'OK');
 });
 
 ###################################################################

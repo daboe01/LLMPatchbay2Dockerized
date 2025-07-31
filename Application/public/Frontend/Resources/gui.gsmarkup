@@ -41,7 +41,7 @@
         </vbox>
     </window>
 
-    <window id="importFromUploadWindow" title="Import from Upload" size="300 150" center="true">
+    <window id="importFromUploadWindow" title="Import from Upload" width="300" height="150" visible="NO">
         <vbox>
             <hbox>
                 <label>Prompt:</label>
