@@ -45,7 +45,7 @@
         <vbox>
             <hbox>
                 <label halign="min">Prompt:</label>
-                <popUpButton valueBinding="#CPOwner.importPromptID" itemsBinding="#CPOwner.projectsController.arrangedObjects.name"/>
+                <popUpButton halign="expand" valueBinding="#CPOwner.importPromptID" itemsBinding="#CPOwner.projectsController.arrangedObjects.name"/>
             </hbox>
            <hbox>
                 <button title="Ok" action="performImportFromUpload:" target="CPOwner" />

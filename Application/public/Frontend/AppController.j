@@ -328,6 +328,7 @@ BaseURL = HostURL + "/";
 
     var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/import_from_upload/" + importPromptID];
     [myreq setHTTPMethod:"POST"];
+    [myreq setHTTPBody:''];
     [CPURLConnection connectionWithRequest:myreq delegate:self];
 
     [importFromUploadWindow orderOut:sender];

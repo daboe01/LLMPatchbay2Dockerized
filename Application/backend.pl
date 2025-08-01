@@ -56,6 +56,34 @@ $r->get('/' => sub {
     $self->redirect_to($redirect_url);
 });
 
+$r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
+         my $self = shift;
+         my $idproject = $self->param('id');
+         my $upload_dir = '/upload';
+
+         my $dir = Mojo::File->new($upload_dir);
+         my @files = $dir->list->each;
+         $self->render(text => "@files");
+         return;
+
+         my $i = 0;
+
+         foreach my $file (@files) {
+                 my $content = $file->slurp;
+                 my $filename = $file->basename;
+
+                 $self->pg->db->insert('input_data', {
+                                                       title => $filename,
+                                                       content => $content,
+                                                       idprompt => $idproject
+                                                     });
+                    $i++;
+                    # $file->remove;
+            }
+
+            $self->render(text => 'OK '.$i);
+});
+
 $r->get('/LLM/get_data_from_dataset/:dataset_name' => sub
 {
     my $self          = shift;
@@ -1376,14 +1404,6 @@ $r->post('/LLM/upload' => sub {
     }
 
     $self->render(status => 200, json => { message => "Upload process completed.", files_processed => \@results });
-});
-
-$r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
-    my $self = shift;
-    my $idproject = $self->param('id');
-    my $upload_dir = '/upload';
-$self->render(text => "hello");
-return;
 });
 
 ###################################################################
