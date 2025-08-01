@@ -16,6 +16,7 @@ use MIME::Base64;
 use JQ::Lite;
 use XML::XML2JSON;
 use Archive::Zip;
+use File::Basename;
 
 no warnings 'uninitialized';
 
@@ -62,62 +63,93 @@ $r->post('/LLM/upload' => sub {
 
     my $uploads = $self->req->uploads('files[]');
 
-    unless (scalar @$uploads) {
-        return $self->render(status => 400, json => {error => 'No files uploaded. Please use the form field named "files[]".'});
-    }
-
+    # Ensure the upload directory exists
     my $dir_path = Mojo::File->new($upload_dir);
-    eval {
-        $dir_path->make_path unless -d $dir_path;
-    };
+    eval { $dir_path->make_path unless -d $dir_path; };
+
     if ($@) {
-        $self->app->log->error("Failed to create upload directory '$upload_dir': $@");
-        return $self->render(status => 500, json => {error => "Server configuration error: Could not create upload directory."});
+        $self->app->log->error(
+        "Failed to create upload directory '$upload_dir': $@");
+        return $self->render(
+                                status => 500,
+                                json   => {
+                                                error =>
+                                                "Server configuration error: Could not create upload directory."
+                                            }
+                             );
     }
 
     my @results;
 
     for my $upload (@$uploads) {
-        my $filename = $upload->filename;
+        my $filename     = $upload->filename;
         my $content_type = $upload->headers->content_type;
 
-        if ($filename =~ /\.zip$/i) {
+        if ( $filename =~ /\.zip$/i ) {
 
-            # Create a temporary file to reliably store the upload,
-            # regardless of whether it's in memory or on disk initially.
+            # Create a temporary file to reliably store the upload
             my $temp_zip_file = Mojo::File::tempfile();
             my $temp_zip_path = $temp_zip_file->to_string;
 
-            # Move the uploaded content to our temp file. This works for both
-            # Mojo::Asset::Memory and Mojo::Asset::File.
+            # Move the uploaded content to our temp file
             $upload->move_to($temp_zip_path);
 
-            # Now we can safely use our temp file path with Archive::Zip
             my $zip = Archive::Zip->new();
 
-            if ($zip->read($temp_zip_path) != Archive::Zip::AZ_OK) {
-                $self->app->log->error("Could not read zip file '$filename' from its temp path '$temp_zip_path'.");
-                return $self->render(status => 500, json => {error => "Server error: Failed to read the ZIP file '$filename'."});
+            if ( $zip->read($temp_zip_path) != Archive::Zip::AZ_OK ) {
+                unlink $temp_zip_path; # Clean up temp file on failure
+                return $self->render(
+                                        status => 500,
+                                        json =>
+                                        { error => "Server error: Failed to read the ZIP file '$filename'." }
+                                     );
             }
 
-            if ($zip->extractTree('', '', $upload_dir) != Archive::Zip::AZ_OK) {
-                $self->app->log->error("Failed to extract zip file '$filename' to '$upload_dir'.");
-                return $self->render(status => 500, json => {error => "Server error: Failed to extract contents from '$filename'."});
+            # Iterate through each member (file/dir) in the zip archive
+            for my $member ( $zip->members() ) {
+
+                # Skip directories and macOS-specific resource files
+                next if $member->isDirectory() || $member->fileName() =~ m{^__MACOSX/};
+
+                # Get only the base filename, stripping internal zip paths
+                my $file_basename = basename( $member->fileName() );
+
+                # Construct the final destination path in the root of the upload dir
+                my $destination_path = Mojo::File->new( $upload_dir, $file_basename );
+
+                # Extract the file to the destination
+                if ( $member->extractToFileNamed( $destination_path->to_string ) != Archive::Zip::AZ_OK )
+                {
+                    unlink $temp_zip_path; # Clean up temp file on failure
+                    return $self->render(
+                                            status => 500,
+                                            json   => {
+                                                            error =>
+                                                            "Server error: Failed to extract a file from '$filename'."
+                                                       }
+                                        );
+                }
             }
 
-            $self->app->log->info("Successfully unpacked '$filename' to '$upload_dir'");
+            # Clean up the temporary zip file after successful extraction
+            unlink $temp_zip_path;
             push @results, { file => $filename, status => 'unpacked' };
 
-        } else {
-            my $destination_path = Mojo::File->new($upload_dir, $filename);
-            $upload->move_to($destination_path->to_string);
-
-            $self->app->log->info("Successfully saved '$filename' to '$upload_dir'");
+        }
+        else {
+            my $destination_path = Mojo::File->new( $upload_dir, $filename );
+            $upload->move_to( $destination_path->to_string );
             push @results, { file => $filename, status => 'saved' };
         }
     }
 
-    $self->render(status => 200, json => { message => "Upload process completed.", files_processed => \@results });
+    $self->render(
+                    status  => 200,
+                    json    => {
+                                message => "Upload process completed.",
+                                files_processed => \@results
+                               }
+                );
 });
 
 $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {

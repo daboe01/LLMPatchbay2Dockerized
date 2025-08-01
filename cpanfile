@@ -18,3 +18,4 @@ requires "XML::XML2JSON";
 requires "Archive::Zip";
 requires "IO::Socket::SSL";
 requires "DBD::Pg";
+requires "File::Basename";
