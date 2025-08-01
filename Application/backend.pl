@@ -1385,6 +1385,8 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
 
     my $dir = Mojo::File->new($upload_dir);
     my @files = $dir->list->each;
+$self->render(text => "@files");
+return;
 
     my $i = 0;
 

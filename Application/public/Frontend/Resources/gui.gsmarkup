@@ -44,9 +44,8 @@
     <window id="importFromUploadWindow" title="Import from Upload" width="300" height="150" visible="NO">
         <vbox>
             <hbox>
-                <label>Prompt:</label>
+                <label halign="min">Prompt:</label>
                 <popUpButton valueBinding="#CPOwner.importPromptID" itemsBinding="#CPOwner.projectsController.arrangedObjects.name"/>
-                <hspace/>
             </hbox>
            <hbox>
                 <button title="Ok" action="performImportFromUpload:" target="CPOwner" />
