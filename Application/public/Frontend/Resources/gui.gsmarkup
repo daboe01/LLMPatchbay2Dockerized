@@ -41,10 +41,10 @@
         </vbox>
     </window>
 
-    <window id="importFromUploadWindow" title="Import from Upload" width="300" height="150" visible="NO">
+    <window id="importFromUploadWindow" title="Import from Upload" width="170" height="90" visible="NO">
         <vbox>
             <hbox>
-                <label halign="min">Prompt:</label>
+                <label halign="min" valign="center">Prompt:</label>
                 <popUpButton halign="expand" valueBinding="#CPOwner.importPromptID" itemsBinding="#CPOwner.projectsController.arrangedObjects.name"/>
             </hbox>
            <hbox>
