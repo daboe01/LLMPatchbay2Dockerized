@@ -57,31 +57,29 @@ $r->get('/' => sub {
 });
 
 $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
-         my $self = shift;
-         my $idproject = $self->param('id');
-         my $upload_dir = '/upload';
+    my $self = shift;
+    my $idproject = $self->param('id');
+    my $upload_dir = '/upload';
 
-         my $dir = Mojo::File->new($upload_dir);
-         my @files = $dir->list->each;
-         $self->render(text => "@files");
-         return;
+    my $dir = Mojo::File->new($upload_dir);
+    my @files = $dir->list->each;
 
-         my $i = 0;
+    my $i = 0;
 
-         foreach my $file (@files) {
-                 my $content = $file->slurp;
-                 my $filename = $file->basename;
+    foreach my $file (@files) {
+         my $content = $file->slurp;
+         my $filename = $file->basename;
 
-                 $self->pg->db->insert('input_data', {
-                                                       title => $filename,
-                                                       content => $content,
-                                                       idprompt => $idproject
-                                                     });
-                    $i++;
-                    # $file->remove;
-            }
+         $self->pg->db->insert('input_data', {
+                                               title => $filename,
+                                               content => $content,
+                                               idprompt => $idproject
+                                             });
+         $i++;
+         $file->remove;
+    }
 
-            $self->render(text => 'OK '.$i);
+    $self->render(text => 'OK '.$i);
 });
 
 $r->get('/LLM/get_data_from_dataset/:dataset_name' => sub

@@ -14,25 +14,25 @@
 // Extract prefix from window.location.pathname
 function extractPrefix() {
     var pathname = window.location.pathname;
-    
+
     // If pathname ends with /Frontend/index.html, extract the prefix
     if (pathname.endsWith('/Frontend/index.html')) {
         var prefix = pathname.substring(0, pathname.length - '/Frontend/index.html'.length);
         return prefix === '' ? '' : prefix;
     }
-    
+
     // If pathname ends with /Frontend/, extract the prefix
     if (pathname.endsWith('/Frontend/')) {
         var prefix = pathname.substring(0, pathname.length - '/Frontend/'.length);
         return prefix === '' ? '' : prefix;
     }
-    
+
     // If pathname ends with /Frontend, extract the prefix
     if (pathname.endsWith('/Frontend')) {
         var prefix = pathname.substring(0, pathname.length - '/Frontend'.length);
         return prefix === '' ? '' : prefix;
     }
-    
+
     // Default: no prefix
     return '';
 }
@@ -75,7 +75,7 @@ BaseURL = HostURL + "/";
 
 @end
 
-@implementation SessionStore : FSStore 
+@implementation SessionStore : FSStore
 
 - (CPURLRequest)requestForAddressingObjectsWithKey: aKey equallingValue: (id) someval inEntity:(FSEntity) someEntity
 {
@@ -140,11 +140,11 @@ BaseURL = HostURL + "/";
     id embeddedDatasetsController;
     id embeddedDataController;
     id importCSVText;
-    
+
     id  _searchTerm @accessors(property=searchTerm);
     id  _playgroundSearchTerm @accessors(property=playgroundSearchTerm);
     id  playgroundTV;
-    
+
     // Upload properties
     id myCuploader;
     id queueController;
@@ -418,9 +418,9 @@ BaseURL = HostURL + "/";
 {
     // remove from list
     var indexes = [aCup.queue indexesOfObjectsPassingTest:function(file)
-                    {
-                        return  file === aFile;
-                    }];
+                   {
+        return  file === aFile;
+    }];
     [aCup.queue removeObjectsAtIndexes:indexes];
     [[aCup queueController] setContent:aCup.queue];
 }
@@ -436,7 +436,7 @@ BaseURL = HostURL + "/";
     // Initialize Uploader
     myCuploader = [[Cup alloc] initWithURL:BaseURL + "LLM/upload"];
     queueController = [myCuploader queueController];
-    [myCuploader setDropTarget:[[CPApp mainWindow] contentView]];
+    [myCuploader setDropTarget:playgroundTV];
     [myCuploader setAutoUpload:YES];
     [myCuploader setRemoveCompletedFiles:YES];
     [myCuploader setDelegate:self];
@@ -446,7 +446,7 @@ BaseURL = HostURL + "/";
 
     [[mainWindow contentView] setBackgroundColor:[CPColor colorWithWhite:0.95 alpha:1.0]];
 
-     laceViewController = [LaceViewController new];
+    laceViewController = [LaceViewController new];
     [laceViewController setView:laceView];
     [laceViewController setBlocksController:blocksController];
     [laceViewController setSettingsController:settingsController];
