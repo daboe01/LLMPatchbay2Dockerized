@@ -371,6 +371,13 @@ BaseURL = HostURL + "/";
     if (someConnection._senderButton && [someConnection._senderButton isKindOfClass:CPButton])
         [self resetButtonBusy:someConnection._senderButton];
 
+    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/import_from_upload/") >= 0)
+    {
+        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Import from upload" message:data customIcon:TNGrowlIconInfo];
+        [inputController reload];
+        return;
+    }
+
     if (someConnection.isExport)
     {
         var responseString = data;
@@ -396,13 +403,6 @@ BaseURL = HostURL + "/";
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt duplicated." customIcon:TNGrowlIconInfo];
         [projectsController reload];
-        return;
-    }
-
-    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/import_from_upload/") >= 0)
-    {
-        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Import from upload" message:data customIcon:TNGrowlIconInfo];
-        [inputController reload];
         return;
     }
 
