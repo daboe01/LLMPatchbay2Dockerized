@@ -58,7 +58,7 @@ $r->get('/' => sub {
 
 $r->post('/LLM/upload' => sub {
     my $self = shift;
-    my $upload_dir = '/upload'; # IMPORTANT: This directory must be writable by the user running the web server.
+    my $upload_dir = '/upload';
 
     my $uploads = $self->req->uploads('files[]');
 
@@ -100,7 +100,7 @@ $r->post('/LLM/upload' => sub {
                 return $self->render(status => 500, json => {error => "Server error: Failed to read the ZIP file '$filename'."});
             }
 
-            if ($zip->extractTree('', "$upload_dir/") != Archive::Zip::AZ_OK) {
+            if ($zip->extractTree('', '', $upload_dir) != Archive::Zip::AZ_OK) {
                 $self->app->log->error("Failed to extract zip file '$filename' to '$upload_dir'.");
                 return $self->render(status => 500, json => {error => "Server error: Failed to extract contents from '$filename'."});
             }
@@ -109,7 +109,6 @@ $r->post('/LLM/upload' => sub {
             push @results, { file => $filename, status => 'unpacked' };
 
         } else {
-            # This logic was already correct: move the upload to its final destination.
             my $destination_path = Mojo::File->new($upload_dir, $filename);
             $upload->move_to($destination_path->to_string);
 
