@@ -328,7 +328,7 @@ BaseURL = HostURL + "/";
 
     var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/import_from_upload/" + importPromptID];
     [myreq setHTTPMethod:"POST"];
-    var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
+    [CPURLConnection connectionWithRequest:myreq delegate:self];
 
     [importFromUploadWindow orderOut:sender];
 }
@@ -396,6 +396,13 @@ BaseURL = HostURL + "/";
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt duplicated." customIcon:TNGrowlIconInfo];
         [projectsController reload];
+        return;
+    }
+
+    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/import_from_upload/") >= 0)
+    {
+        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Import from upload" message:data customIcon:TNGrowlIconInfo];
+        [inputController reload];
         return;
     }
 

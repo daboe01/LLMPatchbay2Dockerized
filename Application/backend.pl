@@ -1386,6 +1386,8 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
     my $dir = Mojo::File->new($upload_dir);
     my @files = $dir->list->each;
 
+    my $i = 0;
+
     foreach my $file (@files) {
         my $content = $file->slurp;
         my $filename = $file->basename;
@@ -1395,11 +1397,11 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
             content => $content,
             idprompt => $idproject
         });
-
-        $file->remove;
+        $i++;
+        # $file->remove;
     }
 
-    $self->render(text => 'OK');
+    $self->render(text => 'OK '.$i);
 });
 
 ###################################################################
