@@ -163,7 +163,7 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
     my $i = 0;
 
     foreach my $file (@files) {
-         my $content = $file->slurp;
+         my $content = Encode::decode 'UTF-8', $file->slurp;
          my $filename = $file->basename;
 
          $self->pg->db->insert('input_data', {
