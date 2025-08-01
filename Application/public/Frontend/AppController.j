@@ -375,7 +375,11 @@ BaseURL = HostURL + "/";
     if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/import_from_upload/") >= 0)
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Import from upload" message:data customIcon:TNGrowlIconInfo];
-        [inputController reload];
+
+        var entity = inputController._entity;
+        entity._pkcache = [];
+        [inputController setContent:[entity allObjects]];
+
         return;
     }
 
