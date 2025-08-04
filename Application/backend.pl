@@ -26,24 +26,12 @@ helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localho
 # create minion db as needed
 #
 
-my $minion_dsn = 'postgresql://docker:docker@localhost/minion';
 
 eval {
-    Mojo::Pg->new($minion_dsn)->ping;
+    app->pg->db->query("CREATE DATABASE minion");
 };
 
-if (my $err = $@) {
-    # 3. If the connection failed, check *why*.
-    if ($err =~ /not exist/i) {
-        $log->warn("Database '$db_name' does not exist. Attempting to create it...");
-
-        eval {
-            # This is where the CREATEDB privilege is required.
-            $self->pg->db->query("CREATE DATABASE minion");
-        };
-    }
-}
-
+my $minion_dsn = 'postgresql://docker:docker@localhost/minion';
 plugin Minion => {Pg => $minion_dsn};
 
 #
