@@ -1133,7 +1133,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
             my $poppler_command = "$pdftotext_path " . $temp_pdf_file->to_string . " -";
             warn "Executing Poppler: $poppler_command";
 
-            my $extracted_text = `$poppler_command`;
+            my $extracted_text = Encode::decode 'UTF-8', `$poppler_command`;
 
             # Temp PDF file is automatically removed when $temp_pdf_file goes out of scope.
 
