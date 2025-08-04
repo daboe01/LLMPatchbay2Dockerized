@@ -29,7 +29,7 @@ helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localho
 my $minion_dsn = 'postgresql://docker:docker@localhost/minion';
 
 eval {
-    Mojo::Pg->new($minion_dsn)->db->ping;
+    Mojo::Pg->new($minion_dsn)->ping;
 };
 
 if (my $err = $@) {
