@@ -23,14 +23,13 @@ no warnings 'uninitialized';
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
 #
-# create minion db as needed
+# begin minion setup
 #
 
-
+# create minion db as needed
 eval {
     app->pg->db->query("CREATE DATABASE minion");
 };
-
 my $minion_dsn = 'postgresql://docker:docker@localhost/minion';
 plugin Minion => {Pg => $minion_dsn};
 
