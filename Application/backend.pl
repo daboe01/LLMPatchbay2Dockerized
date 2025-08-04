@@ -22,7 +22,33 @@ no warnings 'uninitialized';
 
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
-# plugin Minion => {Pg => 'postgresql://docker:docker@localhost/minion'};
+#
+# create minion db as needed
+#
+
+my $minion_dsn = 'postgresql://docker:docker@localhost/minion';
+
+eval {
+    Mojo::Pg->new($minion_dsn)->db->ping;
+};
+
+if (my $err = $@) {
+    # 3. If the connection failed, check *why*.
+    if ($err =~ /not exist/i) {
+        $log->warn("Database '$db_name' does not exist. Attempting to create it...");
+
+        eval {
+            # This is where the CREATEDB privilege is required.
+            $self->pg->db->query("CREATE DATABASE minion");
+        };
+    }
+}
+
+plugin Minion => {Pg => $minion_dsn};
+
+#
+# end minion setup
+#
 
 my $prefix = $ENV{NB_PREFIX} || '';
 my $inference_proto = $ENV{NB_PREFIX} ? 'http' : 'https';
