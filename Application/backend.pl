@@ -22,6 +22,8 @@ no warnings 'uninitialized';
 
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
+plugin Minion => {Pg => 'postgresql://docker:docker@localhost/minion'};
+
 my $prefix = $ENV{NB_PREFIX} || '';
 my $inference_proto = $ENV{NB_PREFIX} ? 'http' : 'https';
 
@@ -37,6 +39,76 @@ sub startup {
     my $self = shift;
     $self->log->level('debug'); # Ensure debug messages are visible for UA logging
     $self->log->info("Application started and log level set to debug.");
+
+    my $tx = $self->pg->db->begin;
+    eval {
+        $self->log->info('Attempting to acquire database migration lock...');
+        $self->pg->db->query('SELECT pg_advisory_xact_lock(20241029)');
+        $self->log->info('Migration lock acquired.');
+
+        # 1. Let Minion set up or repair its own tables first.
+        $self->log->info('Checking/repairing Minion schema...');
+        $self->minion->backend->repair;
+        $self->log->info('Minion schema is up to date.');
+
+        # 2. Ensure the schema_migrations table exists (this is idempotent)
+        $self->pg->db->query(q{
+                                CREATE TABLE IF NOT EXISTS schema_migrations (
+                                    version INTEGER PRIMARY KEY,
+                                    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                                );
+                            });
+
+        # ### START OF MIGRATION DEFINITION ###
+        # This is where you define all your application's schema changes.
+        # Add new SQL scripts to this list when you need to make changes.
+        my @migrations = (
+            {
+                version => 1,
+                name    => 'Create batch_jobs table',
+                sql     => q{
+                    CREATE TABLE batch_jobs (
+                        id SERIAL PRIMARY KEY,
+                        idproject INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                        status VARCHAR(20) NOT NULL DEFAULT 'pending', -- e.g., pending, running, completed, failed
+                        total_items INTEGER NOT NULL,
+                        processed_items INTEGER NOT NULL DEFAULT 0,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                }
+            },
+            # --- EXAMPLE: Your *next* migration would go here ---
+            # {
+            #     version => 2,
+            #     name    => 'Add error_details column to batch_jobs',
+            #     sql     => q{
+            #         ALTER TABLE batch_jobs ADD COLUMN error_details TEXT;
+            #     }
+            # },
+        );
+        # ### END OF MIGRATION DEFINITION ###
+
+        my $current_version = $self->pg->db->query('SELECT MAX(version) FROM schema_migrations')->hash->{max} || 0;
+        $self->log->info("Current database schema version is $current_version.");
+
+        for my $migration (sort { $a->{version} <=> $b->{version} } @migrations) {
+            if ($migration->{version} > $current_version) {
+                $self->log->info("Applying migration v$migration->{version}: $migration->{name}");
+                $self->pg->db->query($migration->{sql});
+                $self->pg->db->query('INSERT INTO schema_migrations (version) VALUES (?)', $migration->{version});
+                $self->log->info("Successfully applied migration v$migration->{version}.");
+            }
+        }
+
+        $self->log->info('All database migrations are up to date.');
+        $tx->commit;
+    };
+    if (my $err = $@) {
+        $tx->rollback;
+        $self->log->fatal("Database migration failed: $err");
+        die "Database migration failed: $err";
+    }
 }
 
 # turn browser cache off
