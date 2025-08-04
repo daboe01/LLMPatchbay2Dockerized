@@ -22,7 +22,7 @@ no warnings 'uninitialized';
 
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
-plugin Minion => {Pg => 'postgresql://docker:docker@localhost/minion'};
+# plugin Minion => {Pg => 'postgresql://docker:docker@localhost/minion'};
 
 my $prefix = $ENV{NB_PREFIX} || '';
 my $inference_proto = $ENV{NB_PREFIX} ? 'http' : 'https';
