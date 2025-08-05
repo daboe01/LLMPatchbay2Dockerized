@@ -32,7 +32,7 @@ fi
 
 # Start the main application in the foreground
 echo "Starting LLMPatchbay backend..."
-hypnotoad -f /usr/src/app/backend.pl &
+hypnotoad /usr/src/app/backend.pl &
 tail -f /var/log/postgresql/postgresql-17-main.log &
-
+perl /usr/src/app/backend.pl minion worker &
 wait
