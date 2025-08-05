@@ -428,7 +428,7 @@ $r->post('/LLM/batch_process' => sub {
     }
 
     $self->render(json => {
-                              message => "Batch process started successfully for $total_items items.",
+                              message => "Batch process started successfully for @$input_ids.",
                           });
 });
 
