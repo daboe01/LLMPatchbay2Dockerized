@@ -117,6 +117,9 @@
                                 </scrollView>
                                 <ButtonBar target="#CPOwner.inputController" minusButtonAction="remove:" plusButtonAction="insert:" actionsButton="YES">
                                     <popUpButtonItem title="Import from upload..." action="importFromUpload:" target="#CPOwner" />
+                                    <popUpButtonItem title="Delete all..." action="deleteAllInputs:" target="#CPOwner"/>
+                                    <popUpButtonItem title="Batch run all..." action="batchRunAll:" target="#CPOwner"/>
+                                    <popUpButtonItem title="Download all..." action="downloadCSV:" target="#CPOwner"/>
                                 </ButtonBar>
                             </vbox>
 

@@ -352,6 +352,61 @@ BaseURL = HostURL + "/";
     [inputController remove:sender]
 }
 
+- (void)downloadCSV:(id)sender
+{
+    [self openWindowWithURL:BaseURL + 'LLM/download_csv' inWindowID:'download_csv_window'];
+}
+
+- (void)batchRunAll:(id)sender
+{
+    var myalert = [CPAlert new];
+    [myalert setMessageText: "Start batch process for all inputs?"];
+    [myalert setInformativeText: "This will enqueue a job for every item in the input list and may take a long time to complete."];
+    [myalert addButtonWithTitle:"Cancel"];
+    [myalert addButtonWithTitle:"Start Batch"];
+    [myalert beginSheetModalForWindow:mainWindow modalDelegate:self didEndSelector:@selector(batchRunAllWarningDidEnd:code:context:) contextInfo:sender];
+}
+
+- (void)batchRunAllWarningDidEnd:(CPAlert)anAlert code:(id)code context:(id)sender
+{
+    if (code) // User clicked "Start Batch"
+    {
+        var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/batch_process"];
+        [myreq setHTTPMethod:"POST"];
+        var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
+
+        if ([sender isKindOfClass:CPButton]) {
+            [self setButtonBusy:sender];
+            connection._senderButton = sender;
+        }
+    }
+}
+
+- (void)deleteAllInputs:(id)sender
+{
+    var myalert = [CPAlert new];
+    [myalert setMessageText: "Are you sure you want to delete all inputs?"];
+    [myalert setInformativeText: "This action cannot be undone."];
+    [myalert addButtonWithTitle:"Keep Inputs"];
+    [myalert addButtonWithTitle:"Delete All"];
+    [myalert beginSheetModalForWindow:mainWindow modalDelegate:self didEndSelector:@selector(deleteAllInputsWarningDidEnd:code:context:) contextInfo:sender];
+}
+
+- (void)deleteAllInputsWarningDidEnd:(CPAlert)anAlert code:(id)code context:(id)sender
+{
+    if (code) // User clicked "Delete All"
+    {
+        var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/delete_all_inputs"];
+        [myreq setHTTPMethod:"DELETE"];
+        var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
+
+        if ([sender isKindOfClass:CPButton]) {
+            [self setButtonBusy:sender];
+            connection._senderButton = sender;
+        }
+    }
+}
+
 - (void)removeBlocks:(id)sender
 {
     [laceViewController removeBlocks:sender]
@@ -372,7 +427,27 @@ BaseURL = HostURL + "/";
     if (someConnection._senderButton && [someConnection._senderButton isKindOfClass:CPButton])
         [self resetButtonBusy:someConnection._senderButton];
 
-    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/import_from_upload/") >= 0)
+    var urlString = [[someConnection currentRequest] URL] absoluteString];
+
+    // START: MODIFIED SECTION TO HANDLE NEW ACTIONS
+    if (urlString.indexOf(BaseURL + "LLM/delete_all_inputs") >= 0)
+    {
+        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"All inputs have been deleted." customIcon:TNGrowlIconInfo];
+        // Use the fixed method to perform a full reload of the controller's content
+        [inputController fullyReloadAsync];
+        [outputController reload]; // Also clear the output view
+        return;
+    }
+
+    if (urlString.indexOf(BaseURL + "LLM/batch_process") >= 0)
+    {
+        var result = JSON.parse(data);
+        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Batch Process Started" message:result['message'] customIcon:TNGrowlIconInfo];
+        return;
+    }
+    // END: MODIFIED SECTION
+
+    if (urlString.indexOf(BaseURL + "LLM/import_from_upload/") >= 0)
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Import from upload" message:data customIcon:TNGrowlIconInfo];
 
@@ -393,7 +468,7 @@ BaseURL = HostURL + "/";
         return;
     }
 
-    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/project/import") >= 0)
+    if (urlString.indexOf(BaseURL + "LLM/project/import") >= 0)
     {
         var entity = projectsController._entity;
         entity._pkcache = [];
@@ -404,7 +479,7 @@ BaseURL = HostURL + "/";
         return;
     }
 
-    if ([[[someConnection currentRequest] URL] absoluteString].indexOf(BaseURL + "LLM/duplicate_prompt/") >= 0)
+    if (urlString.indexOf(BaseURL + "LLM/duplicate_prompt/") >= 0)
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt duplicated." customIcon:TNGrowlIconInfo];
         [projectsController reload];
