@@ -218,16 +218,16 @@ $r->get('/LLM/download_csv' => sub {
     # Open a "filehandle" to our string variable.
     open my $fh, '>', \$csv_string or die "Cannot open memory filehandle: $!";
 
-    my $csv = Text::CSV->new({ fh => $fh, binary => 1, eol => "\n" });
+    my $csv = Text::CSV->new({ binary => 1, auto_diag => 1});
 
     # Get headers from the first result row and write them to the CSV.
     my @headers = keys %{ $results->[0] };
-    $csv->print(\@headers);
+    $csv->say($fh, \@headers);
 
     # Write each data row to the CSV.
     for my $row (@$results) {
         # A hash slice ensures the values are in the correct order.
-        $csv->print([ @{$row}{@headers} ]);
+        $csv->say($fh, [ @{$row}{@headers} ]);
     }
 
     close $fh; # Close the memory handle.
