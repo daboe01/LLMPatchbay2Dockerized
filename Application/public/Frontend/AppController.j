@@ -427,7 +427,7 @@ BaseURL = HostURL + "/";
     if (someConnection._senderButton && [someConnection._senderButton isKindOfClass:CPButton])
         [self resetButtonBusy:someConnection._senderButton];
 
-    var urlString = [[someConnection currentRequest] URL] absoluteString];
+    var urlString = [[[someConnection currentRequest] URL] absoluteString];
 
     // START: MODIFIED SECTION TO HANDLE NEW ACTIONS
     if (urlString.indexOf(BaseURL + "LLM/delete_all_inputs") >= 0)
