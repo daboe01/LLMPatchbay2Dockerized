@@ -19,6 +19,7 @@ if [ "$NEED_INIT" = true ]; then
   until pg_isready -U postgres; do echo "Waiting for PostgreSQL..."; sleep 2; done
   psql -U postgres --command "CREATE USER docker WITH SUPERUSER PASSWORD 'docker';"
   createdb -U docker --encoding=UTF8 llm_patchbay
+  createdb -U docker --encoding=UTF8 minion
   psql -U docker llm_patchbay < sql_template.sql
 fi
 
@@ -30,9 +31,9 @@ else
   echo "Ollama not found, skipping."
 fi
 
-# Start the main application in the foreground
+# Start the main application in the background
 echo "Starting LLMPatchbay backend..."
 hypnotoad /usr/src/app/backend.pl &
 # tail -f /var/log/postgresql/postgresql-17-main.log &
-perl /usr/src/app/backend.pl minion worker &
-wait
+# Start the job processor in the foreground
+perl /usr/src/app/backend.pl minion worker

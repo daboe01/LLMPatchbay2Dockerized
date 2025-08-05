@@ -911,4 +911,3 @@ ALTER TABLE ONLY public.output_data
 --
 -- PostgreSQL database dump complete
 --
-

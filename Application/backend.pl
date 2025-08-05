@@ -48,39 +48,33 @@ if ($prefix ne '')
     app->log->info("Serving from the prefix '$prefix'");
 }
 
-sub startup {
-    my $self = shift;
-    $self->log->level('debug'); # Ensure debug messages are visible for UA logging
-    $self->log->info("Application started and log level set to debug.");
+app->minion->add_task(process_single_input => sub {
+    my ($job, $idinput) = @_;
+    my $app = $job->app;
 
-    $self->minion->add_task(process_single_input => sub {
-        my ($job, $idinput) = @_;
-        my $app = $job->app;
+    my $input = $app->pg->db->query(q{select * from input_data where id = ?}, $idinput)->hash;
 
-        my $input = $app->pg->db->query(q{select * from input_data where id = ?}, $idinput)->hash;
-        $app->pg->db->insert('output_data', {content => 'rwar', idinput => $idinput});
+    unless ($input) {
+        $app->log->error("Input data with id $idinput not found for job $job->id. Failing.");
+        return $job->fail("Input data with id $idinput not found.");
+    }
 
-        unless ($input) {
-            $app->log->error("Input data with id $idinput not found for job $job->id. Failing.");
-            return $job->fail("Input data with id $idinput not found.");
-        }
+    eval {
+        my $block = $app->pg->db->query('select blocks.id, type from blocks join blocks_catalogue on idblock =  blocks_catalogue.id where idproject = ? and outputs is null and type != 8', $input->{idprompt})->hash;
+        my $result = $app->get_result_of_block_id($block->{id}, $input->{content});
 
-        eval {
-            my $block = $app->pg->db->query('select blocks.id, type from blocks join blocks_catalogue on idblock =  blocks_catalogue.id where idproject = ? and outputs is null and type != 8', $input->{idprompt})->hash;
-            my $result = $app->get_result_of_block_id($block->{id}, $input->{content});
+        # Insert the result into the output table.
+        $app->pg->db->insert('output_data', {content => $result, idinput => $idinput, idprompt => $input->{idprompt}});
 
-            # Insert the result into the output table.
-            $app->pg->db->insert('output_data', {content => $result, idinput => $idinput, idprompt => $input->{idprompt}});
+        $job->finish;
+    };
 
-            $job->finish;
-        };
-
-        if (my $error = $@) {
-            my $error_string = "$error";
-            $job->fail($error_string);
-        }
-    });
-}
+    if (my $error = $@) {
+        my $error_string = "$error";
+        warn $error_string;
+        $job->fail($error_string);
+    }
+});
 
 # turn browser cache off
 hook after_dispatch => sub {
@@ -415,7 +409,7 @@ $r->post('/LLM/batch_process' => sub {
     }
 
     $self->render(json => {
-                              message => "Batch process started successfully for @$input_ids.",
+                              message => "Batch process started successfully for $total_items items.",
                           });
 });
 
@@ -894,10 +888,8 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         };
 
         $json->{images} = [$image] if $image; # multimodal support
-        warn Dumper $json;
 
         my $res = $ua->post($url => json => $json)->result;
-        warn Dumper $res;
 
         if ($res->is_success)
         {
@@ -952,8 +944,6 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         {
             $params->{parameters}->{do_sample} = Mojo::JSON->false;
         }
-
-        warn Dumper $params;
 
         my $ua = Mojo::UserAgent->new;
         $ua->inactivity_timeout(0);
