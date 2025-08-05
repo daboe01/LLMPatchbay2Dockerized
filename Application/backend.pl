@@ -383,23 +383,6 @@ $r->post('/LLM/import_embedding_dataset/:pk' => [pk => qr/\d+/] => sub
     $self->render(text => 'OK');
 });
 
-# Kicks off a background job to process all input_data for a project.
-$r->post('/LLM/batch_process' => sub {
-    my $self = shift;
-
-    # Get all input_data IDs that need processing.
-    my $input_ids = $self->pg->db->select('input_data', ['id'])->hashes->map(sub { $_->{id} })->to_array;
-    my $total_items = scalar @$input_ids;
-
-    foreach my $idinput (@$input_ids) {
-        $self->minion->enqueue(process_single_input => [$idinput]);
-    }
-
-    $self->render(json => {
-                              message => "Batch process started successfully for $total_items items.",
-                          });
-});
-
 $r->post('/LLM/run_stateless/:key' => [key => qr/\d+/] => sub
 {
     my $self     = shift;
