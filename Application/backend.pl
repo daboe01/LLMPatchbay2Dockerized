@@ -53,6 +53,46 @@ sub startup {
     $self->log->level('debug'); # Ensure debug messages are visible for UA logging
     $self->log->info("Application started and log level set to debug.");
 
+    $self->minion->add_task(process_single_input => sub {
+        # --- 1. Get Arguments & Application Object ---
+        # A Minion task does not have `$self`.
+        # The first argument is always the job object, `$job`.
+        # Subsequent arguments are what we passed in `enqueue()`: [$idinput].
+        my ($job, $idinput) = @_;
+
+        # To use helpers like `pg` and `get_result_of_block_id`, we need the
+        # main application object, which we get from the job.
+        my $app = $job->minion->app;
+
+
+        # --- 2. The Core Processing Logic (from your template) ---
+        # Fetch the input data using the ID passed to the task.
+        # Note we use `$app->pg` instead of `$self->pg`.
+        my $input = $app->pg->db->query(q{select * from input_data where id = ?}, $idinput)->hash;
+
+        # It's good practice in a background job to check if the data still exists.
+        unless ($input) {
+            $app->log->error("Input data with id $idinput not found for job $job->id. Failing.");
+            # Report failure to Minion and stop execution.
+            return $job->fail("Input data with id $idinput not found.");
+        }
+
+        eval {
+            # Find the block and get the result, using `$app->` instead of `$self->`
+            my $block = $app->pg->db->query('select blocks.id, type from blocks join blocks_catalogue on idblock =  blocks_catalogue.id where idproject = ? and outputs is null and type != 8', $input->{idprompt})->hash;
+            my $result = $app->get_result_of_block_id($block->{id}, $input->{content});
+
+            # Insert the result into the output table.
+            $app->pg->db->insert('output_data', {content => $result, idinput => $idinput, idprompt => $input->{idprompt}});
+
+            $job->finish;
+        };
+
+        if (my $error = $@) {
+            my $error_string = "$error";
+            $job->fail($error_string);
+        }
+    });
 }
 
 # turn browser cache off
@@ -234,7 +274,6 @@ $r->delete('/LLM/delete_all_inputs' => sub {
     $self->render(json =>   {
                                 message         => "Deleted all inputs."
                             });
-    };
 });
 
 $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
@@ -381,6 +420,23 @@ $r->post('/LLM/import_embedding_dataset/:pk' => [pk => qr/\d+/] => sub
     }
 
     $self->render(text => 'OK');
+});
+
+# Kicks off a background job to process all input_data for a project.
+$r->post('/LLM/batch_process' => sub {
+    my $self = shift;
+
+    # Get all input_data IDs that need processing.
+    my $input_ids = $self->pg->db->select('input_data', ['id'])->hashes->map(sub { $_->{id} })->to_array;
+    my $total_items = scalar @$input_ids;
+
+    foreach my $idinput (@$input_ids) {
+        $self->minion->enqueue(process_single_input => [$idinput]);
+    }
+
+    $self->render(json => {
+                              message => "Batch process started successfully for $total_items items.",
+                          });
 });
 
 $r->post('/LLM/run_stateless/:key' => [key => qr/\d+/] => sub
