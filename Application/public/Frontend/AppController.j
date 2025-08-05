@@ -429,12 +429,15 @@ BaseURL = HostURL + "/";
 
     var urlString = [[[someConnection currentRequest] URL] absoluteString];
 
-    // START: MODIFIED SECTION TO HANDLE NEW ACTIONS
     if (urlString.indexOf(BaseURL + "LLM/delete_all_inputs") >= 0)
     {
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"All inputs have been deleted." customIcon:TNGrowlIconInfo];
         // Use the fixed method to perform a full reload of the controller's content
-        [inputController fullyReloadAsync];
+
+        var entity = inputController._entity;
+        entity._pkcache = [];
+        [inputController setContent:[entity allObjects]];
+
         [outputController reload]; // Also clear the output view
         return;
     }
@@ -445,7 +448,6 @@ BaseURL = HostURL + "/";
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Batch Process Started" message:result['message'] customIcon:TNGrowlIconInfo];
         return;
     }
-    // END: MODIFIED SECTION
 
     if (urlString.indexOf(BaseURL + "LLM/import_from_upload/") >= 0)
     {
