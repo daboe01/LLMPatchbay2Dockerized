@@ -58,6 +58,7 @@ sub startup {
         my $app = $job->app;
 
         my $input = $app->pg->db->query(q{select * from input_data where id = ?}, $idinput)->hash;
+        $app->pg->db->insert('output_data', {content => 'rwar', idinput => $idinput});
 
         unless ($input) {
             $app->log->error("Input data with id $idinput not found for job $job->id. Failing.");
