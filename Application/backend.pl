@@ -213,6 +213,49 @@ $r->post('/LLM/upload' => sub {
 $r->get('/LLM/download_csv' => sub {
     my $self = shift;
 
+    my $results = $self->pg->db->query(q{
+                                            SELECT
+                                                i.id AS input_id,
+                                                i.title AS input_title,
+                                                o.id AS output_id,
+                                                o.content AS output_content
+                                            FROM
+                                                output_data o
+                                            JOIN
+                                                input_data i ON o.idinput = i.id
+                                            ORDER BY
+                                                i.id
+                                        })->hashes;
+
+    # Handle case where there's no data to export.
+    unless (@$results) {
+        return $self->render(status => 404, text => "No output data found.");
+    }
+
+    # 3. Generate the CSV content in memory.
+    my $csv_string = '';
+    # Open a "filehandle" to our string variable.
+    open my $fh, '>', \$csv_string or die "Cannot open memory filehandle: $!";
+
+    my $csv = Text::CSV->new({ fh => $fh, binary => 1, eol => "\n" });
+
+    # Get headers from the first result row and write them to the CSV.
+    my @headers = keys %{ $results->[0] };
+    $csv->print(\@headers);
+
+    # Write each data row to the CSV.
+    for my $row (@$results) {
+        # A hash slice ensures the values are in the correct order.
+        $csv->print([ @{$row}{@headers} ]);
+    }
+
+    close $fh; # Close the memory handle.
+
+    $self->res->headers->content_type('text/csv; charset=utf-8');
+    $self->res->headers->content_disposition("attachment; filename=\"patchbay_outputs.csv\"");
+
+    # 5. Render the CSV string as the response body.
+    $self->render(text => $csv_string);
 });
 
 $r->delete('/LLM/delete_all_inputs' => sub
