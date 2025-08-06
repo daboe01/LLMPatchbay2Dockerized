@@ -1244,7 +1244,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
             my $poppler_command = "$pdftotext_path " . $temp_pdf_file->to_string . " -";
             warn "Executing Poppler: $poppler_command";
 
-            my $extracted_text = Encode::decode 'UTF-8', `$poppler_command`;
+            my $extracted_text = `$poppler_command`;
 
             # Temp PDF file is automatically removed when $temp_pdf_file goes out of scope.
 
@@ -1275,7 +1275,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         # Use backticks to execute pandoc and capture its STDOUT.
         my $command = "pandoc -f $from_format -t $to_format " . $temp_in_file->to_string;
         warn "Executing Pandoc: $command";
-        my $output  = `$command`;
+        my $output  = Encode::decode 'UTF-8', `$command`;
 
         # The temp file is automatically removed when $temp_in_file goes out of scope.
         return $output;
