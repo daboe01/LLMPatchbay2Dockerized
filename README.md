@@ -14,7 +14,7 @@ This project is packaged as a self-contained Docker image that includes the Capp
     *   Store and manage embedding datasets using `pgvector`.
     *   Perform dense retrieval (similarity search) for RAG pipelines.
 *   **Rich Data Processing Blocks:**
-    *   Text manipulation (sprintf, regex), data fetching (HTTP), parsing (JSON, XML), and statistical analysis with **R**.
+    *   Text manipulation (sprintf, regex), data fetching (HTTP), parsing (JSON, XML), and statistical analysis with **R** and DenseRetrieval for RAG.
 *   **Self-Contained & Persistent:** Runs in a single Docker container with persistent database storage.
 
 ## 🚀 Getting Started with Docker
