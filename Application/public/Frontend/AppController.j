@@ -488,10 +488,6 @@ BaseURL = HostURL + "/";
         return;
     }
 
-    var result = JSON.parse(data);
-
-    [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Result" message:result['result'] customIcon:TNGrowlIconInfo];
-
     [outputController reload];
 }
 
