@@ -1416,8 +1416,15 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         my $python_executable = '/opt/langextract_env/bin/python';
         my $script_path       = '/usr/src/app/lang_extract.py';
 
+        my $api_token = $ENV{API_BEARER_TOKEN};
+        if (defined $api_token and $api_token =~ /^(.*)$/) {
+            $api_token = $1;
+        } else {
+            # Handle the case where the token is not set or is empty
+            return "Error: API_BEARER_TOKEN is not set or is invalid in the Perl environment.";
+        }
         # --- Build the command with dynamic inputs as positional arguments ---
-        my $command = "API_BEARER_TOKEN='" . $ENV{API_BEARER_TOKEN}."' $python_executable '$script_path' " .
+        my $command = "API_BEARER_TOKEN='" . $api_token."' $python_executable '$script_path' " .
         "'" . $temp_input_file->to_string . "' " .
         "'$model_id' " .
         "'" . $temp_examples_file->to_string . "' " .
