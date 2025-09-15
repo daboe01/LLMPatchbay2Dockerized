@@ -1417,7 +1417,8 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         my $script_path       = '/usr/src/app/lang_extract.py';
 
         # --- Build the command with dynamic inputs as positional arguments ---
-        my $command = "API_BEARER_TOKEN=" . $ENV{API_BEARER_TOKEN}." $python_executable '$script_path' " .
+        my $key = $ENV{API_BEARER_TOKEN};
+        my $command = "API_BEARER_TOKEN=" . $key." $python_executable '$script_path' " .
         "'" . $temp_input_file->to_string . "' " .
         "'$model_id' " .
         "'" . $temp_examples_file->to_string . "' " .
