@@ -1,0 +1,2 @@
+[langextract.providers]
+tgi = langextract_tgi.provider:TgiLanguageModel

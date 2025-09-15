@@ -1199,11 +1199,12 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
     }
     elsif ($current_block->{type} eq '46') # jq lite
     {
+        my $json_string = encode 'UTF-8', $inputs->{Input};
+        my $query = $current_block->{output_value};
         my $jq = JQ::Lite->new;
-        my @results = $jq->run_query($inputs->{Input}, $current_block->{output_value});
+        my @results = $jq->run_query($json_string, $query);
         return Mojo::JSON::encode_json(\@results);
     }
-
     elsif ($current_block->{type} eq '47') # pandoc converter (formerly unrtf)
     {
         my $settings    = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
@@ -1391,6 +1392,75 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
             return $error_msg;
         }
+    }
+    elsif ($current_block->{type} eq '52') # langextract
+    {
+        # --- Get static settings from the block's GUI configuration ---
+        my $settings = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
+
+        # --- Get dynamic content directly from block inputs ---
+        my $input_data      = $inputs->{Input} || '';
+        return '' unless $input_data; # Exit if main input is empty
+
+        my $model_id        = $inputs->{ModelID} || 'phi-4';
+        my $examples_json   = $inputs->{ExamplesJSON} || '[]';
+        my $prompt_text     = $inputs->{PromptText} || '';
+        my $chat_template   = $inputs->{ChatTemplate}; # Optional
+
+        # --- Create temporary files to hold the dynamic content ---
+        my $temp_input_file    = Mojo::File->new(Mojo::File::tempfile())->spurt(encode 'UTF-8', $input_data);
+        my $temp_examples_file = Mojo::File->new(Mojo::File::tempfile())->spurt(encode 'UTF-8', $examples_json);
+        my $temp_prompt_file   = Mojo::File->new(Mojo::File::tempfile())->spurt(encode 'UTF-8', $prompt_text);
+
+        # Define paths to Python executable and script
+        my $python_executable = '/opt/langextract_env/bin/python';
+        my $script_path       = '/usr/src/app/lang_extract.py';
+
+        # --- Build the command with dynamic inputs as positional arguments ---
+        my $command = "$python_executable '$script_path' " .
+        "'" . $temp_input_file->to_string . "' " .
+        "'$model_id' " .
+        "'" . $temp_examples_file->to_string . "' " .
+        "'" . $temp_prompt_file->to_string . "'";
+
+        # Conditionally add the chat template file argument if content was provided
+        my $temp_template_file;
+        if (defined $chat_template && length $chat_template) {
+            $temp_template_file = Mojo::File->new(Mojo::File::tempfile())->spurt($chat_template);
+            $command .= " --chat-template-file '" . $temp_template_file->to_string . "'";
+        }
+
+        # --- Add optional arguments from the static GUI settings, with defaults ---
+        my $max_workers = (defined $settings->{max_workers} && $settings->{max_workers} ne '')
+        ? int($settings->{max_workers})
+        : 1; # Default to 1
+        $command .= " --max-workers " . $max_workers;
+
+        my $extraction_passes = (defined $settings->{extraction_passes} && $settings->{extraction_passes} ne '')
+        ? int($settings->{extraction_passes})
+        : 1; # Default to 1
+        $command .= " --extraction-passes " . $extraction_passes;
+
+        # For max_char_buffer, we pass it only if set, to let the library use its internal logic if possible.
+        # The Python script's default is None, so let's provide a number to avoid the TypeError.
+        my $max_char_buffer = (defined $settings->{max_char_buffer} && $settings->{max_char_buffer} ne '')
+        ? int($settings->{max_char_buffer})
+        : 4000; # Provide a sensible default to prevent NoneType error.
+        $command .= " --max-char-buffer " . $max_char_buffer;
+
+
+        # Execute the command and capture its STDOUT
+        warn "Running langextract command: $command";
+        my $output = decode 'UTF-8', `$command`;
+        my $exit_code = $? >> 8;
+
+        # Check for errors
+        if ($exit_code != 0) {
+            warn "langextract script failed with exit code $exit_code. Output: $output";
+            return "Error: langextract script failed. See logs for details.";
+        }
+
+        return $output;
     }
 
     return $result;

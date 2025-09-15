@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: langextract-tgi
+Version: 0.1.0
+Summary: A LangExtract provider for Hugging Face TGI's native /generate endpoint.
+Requires-Dist: langextract>=1.0.0
+Requires-Dist: requests>=2.28.0

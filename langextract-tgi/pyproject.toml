@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langextract-tgi"
+version = "0.1.0"
+description = "A LangExtract provider for Hugging Face TGI's native /generate endpoint."
+dependencies = [
+    "langextract>=1.0.0",
+    "requests>=2.28.0",
+]
+
+[project.entry-points."langextract.providers"]
+tgi = "langextract_tgi.provider:TgiLanguageModel"
