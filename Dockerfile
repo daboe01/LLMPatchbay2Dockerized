@@ -57,6 +57,9 @@ RUN . /opt/langextract_env/bin/activate && \
     pip install langextract && \
     cd /usr/src/app/langextract-tgi && pip install -e .
 
+# Set API_BEARER_TOKEN as a build argument or environment variable at runtime
+ARG API_BEARER_TOKEN
+ENV API_BEARER_TOKEN=${API_BEARER_TOKEN}
 # --- End Python Setup ---
 
 # Switch to the non-root user
