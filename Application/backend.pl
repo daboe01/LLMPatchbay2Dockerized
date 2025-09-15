@@ -1418,7 +1418,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         # --- Build the command with dynamic inputs as positional arguments ---
         my $key = $ENV{API_BEARER_TOKEN};
-        my $command = "API_BEARER_TOKEN=" . $key." $python_executable '$script_path' " .
+        my $command = "API_BEARER_TOKEN='" . $key . "' $python_executable '$script_path' " .
         "'" . $temp_input_file->to_string . "' " .
         "'$model_id' " .
         "'" . $temp_examples_file->to_string . "' " .
@@ -1452,7 +1452,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         # Execute the command and capture its STDOUT
         warn "Running langextract command: $command";
-        my $output = decode 'UTF-8', `$command 2>&1`; # Capture STDERR as well
+        my $output = decode 'UTF-8', `$command`; # Capture STDERR as well:  2>&1
         my $exit_code = $? >> 8;
 
         # Check for errors
@@ -1511,7 +1511,7 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
     $ua->on(start => sub    {
         my ($ua, $tx) = @_;
         if (my $api_key = $ENV{API_BEARER_TOKEN}) {
-            $tx->req->headers->authorization("Bearer $api_key");
+            $tx->req->headers->authorization("Bearer ");
         }
     });
 
