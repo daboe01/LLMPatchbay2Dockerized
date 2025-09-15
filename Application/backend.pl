@@ -1511,7 +1511,7 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
     $ua->on(start => sub    {
         my ($ua, $tx) = @_;
         if (my $api_key = $ENV{API_BEARER_TOKEN}) {
-            $tx->req->headers->authorization("Bearer ");
+            $tx->req->headers->authorization("Bearer $api_key");
         }
     });
 
