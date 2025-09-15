@@ -1417,7 +1417,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         my $script_path       = '/usr/src/app/lang_extract.py';
 
         # --- Build the command with dynamic inputs as positional arguments ---
-        my $command = "$python_executable '$script_path' " .
+        my $command = "API_BEARER_TOKEN=" . $ENV{API_BEARER_TOKEN}." $python_executable '$script_path' " .
         "'" . $temp_input_file->to_string . "' " .
         "'$model_id' " .
         "'" . $temp_examples_file->to_string . "' " .
@@ -1451,11 +1451,12 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         # Execute the command and capture its STDOUT
         warn "Running langextract command: $command";
-        my $output = decode 'UTF-8', `$command  2>&1`;
+        my $output = decode 'UTF-8', `$command`;
         my $exit_code = $? >> 8;
 
         # Check for errors
         if ($exit_code != 0) {
+            warn "langextract script failed with exit code $exit_code. Output: $output";
             return "Error: langextract script failed. See logs for details (exit code $exit_code. Output: $output).";
         }
 
