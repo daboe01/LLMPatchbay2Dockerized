@@ -1447,7 +1447,6 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         ? int($settings->{max_char_buffer})
         : 4000; # Provide a sensible default to prevent NoneType error.
         $command .= " --max-char-buffer " . $max_char_buffer;
- return "xxxx $command";
 
         # Execute the command and capture its STDOUT
         warn "Running langextract command: $command";
