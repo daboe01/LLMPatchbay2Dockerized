@@ -263,6 +263,11 @@ BaseURL = HostURL + "/";
     // window.addEventListener('beforeunload', beforeUnloadHandler);
 }
 
+- (void)patchbayHandbuch:(id)sender
+{
+    [self openWindowWithURL:"http://aug-info:4567/PatchbayManual.md"  inWindowID:'patchbay_manual_window'];
+}
+
 - (void)downloadDataset:(id)sender
 {
     [self openWindowWithURL:BaseURL + 'LLM/get_data_from_dataset/' + [embeddedDatasetsController valueForKeyPath:'selection.name'] inWindowID:'download_window'];

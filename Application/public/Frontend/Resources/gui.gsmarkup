@@ -93,6 +93,7 @@
                                     <button title="Delete" target="#CPOwner" action="removeBlocks:"/>
                                     <button title="Export" target="#CPOwner" action="exportProject:"/>
                                     <hspace/>
+                                    <button target="#CPOwner" action="patchbayHandbuch:" title="Handbuch..."/>
                                 </hbox>
                                 <scrollView>
                                     <patchbayView id="lace_view" width="1000" height="1000" halign="min" valign="min"/>
