@@ -101,7 +101,7 @@ def main():
     # --- 2. Configure Model Connection ---
     api_token = os.environ.get("API_BEARER_TOKEN")
 
-    base_url = f"https://inference-api.metal.kn.uniklinik-freiburg.de/llm/{args.model_id}/"
+    base_url = f"http://inference-api.metal.kn.uniklinik-freiburg.de/llm/{args.model_id}/"
 
     model_params = {
         "base_url": base_url,
