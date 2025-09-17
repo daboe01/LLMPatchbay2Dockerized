@@ -18,7 +18,7 @@ class TgiLanguageModel(base_model.BaseLanguageModel):
         super().__init__()
         if not model_id.startswith('tgi::'): raise ValueError("TgiLanguageModel expects model_id to be prefixed with 'tgi::'")
         self._model = model_id.removeprefix('tgi::')
-        self._base_url = (base_url or os.environ.get("TGI_BASE_URL") or "http://inference-api.metal.kn.uniklinik-freiburg.de")
+        self._base_url = (base_url or os.environ.get("TGI_BASE_URL") or "http://localhost:8000")
         self._api_key = (api_key or os.environ.get("TGI_API_KEY") or os.environ.get("API_BEARER_TOKEN"))
         self._extra_kwargs = kwargs
         self._chat_template_string = chat_template
