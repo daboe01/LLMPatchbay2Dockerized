@@ -22,6 +22,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache --mount=type=cache,target=/var/
     pandoc \
     poppler-utils \
     tini \
+    jq \
     python3 \
     python3-pip \
     python3-venv && \
@@ -37,6 +38,7 @@ RUN --mount=type=cache,target=/root/.cpanm cpanm -v -f --installdeps --notest . 
 # Configure R and PostgreSQL
 RUN ln -s /usr/bin/R /usr/local/bin/R && \
     R -e "install.packages(c('rjson'), dependencies=TRUE, repos='http://cran.rstudio.com/')" && \
+    mkdir -p /etc/postgresql/17/main && \
     echo "local all  all  trust" > /etc/postgresql/17/main/pg_hba.conf && \
     echo "host  all  all  127.0.0.1/32 trust" >> /etc/postgresql/17/main/pg_hba.conf && \
     echo "host  all  all  ::1/128    trust" >> /etc/postgresql/17/main/pg_hba.conf && \
