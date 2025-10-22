@@ -13,10 +13,10 @@ use Mojo::Template;
 use Text::CSV;
 use Statistics::R;
 use MIME::Base64;
-use JQ::Lite;
 use XML::XML2JSON;
 use Archive::Zip;
 use File::Basename;
+use IPC::Open3;
 
 no warnings 'uninitialized';
 
@@ -1197,13 +1197,45 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         return XML::XML2JSON->new()->convert($xml);
     }
-    elsif ($current_block->{type} eq '46') # jq lite
+    elsif ($current_block->{type} eq '46') # jq
     {
-        my $json_string = encode 'UTF-8', $inputs->{Input};
-        my $query = $current_block->{output_value};
-        my $jq = JQ::Lite->new;
-        my @results = $jq->run_query($json_string, $query);
-        return Mojo::JSON::encode_json(\@results);
+        my $input_json = $inputs->{Input};
+        my $jq_filter  = $current_block->{output_value};
+        my $output     = '';
+        my $error      = '';
+
+        # IPC::Open3 executes the command directly, avoiding the shell.
+        # The filter is passed as a distinct argument, so it needs no quoting.
+        my $pid = open3(
+        my $child_in,  # Writable handle to jq's STDIN
+        my $child_out, # Readable handle from jq's STDOUT
+        my $child_err, # Readable handle from jq's STDERR
+        'jq', $jq_filter
+        );
+
+        # Send our JSON data to the jq process.
+        print { $child_in } $input_json;
+        close($child_in); # Close the handle to signal End-of-File.
+
+        # Read the entire output from jq.
+        $output = do { local $/; <$child_out> };
+
+        # Read any error messages from jq.
+        $error = do { local $/; <$child_err> };
+
+        waitpid($pid, 0);
+        my $exit_code = $? >> 8;
+
+        # Check for a non-zero exit code and report the actual error from jq.
+        if ($exit_code != 0) {
+            chomp $error;
+            die "jq command failed with exit code: $exit_code. Error: $error";
+        }
+
+        # The output from jq is already a JSON string.
+        # Chomp to remove any trailing newline from the command output.
+        chomp $output;
+        return $output;
     }
     elsif ($current_block->{type} eq '47') # pandoc converter (formerly unrtf)
     {

@@ -22,6 +22,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache --mount=type=cache,target=/var/
     pandoc \
     poppler-utils \
     tini \
+    jq \
     python3 \
     python3-pip \
     python3-venv && \
