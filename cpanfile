@@ -20,4 +20,3 @@ requires "IO::Socket::SSL";
 requires "DBD::Pg";
 requires "File::Basename";
 requires "Minion";
-requires "IPC::Open3";
