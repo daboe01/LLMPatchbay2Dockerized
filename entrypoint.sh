@@ -5,13 +5,13 @@ set -e
 cd /usr/src/app
 
 NEED_INIT=false
-PGDIR=/var/lib/postgresql/17/main
+PGDIR=/var/lib/postgresql/18/main
 if [ ! -f "$PGDIR"/PG_VERSION ]; then
-  /usr/lib/postgresql/17/bin/initdb --encoding=UTF8 -D $PGDIR
+  /usr/lib/postgresql/18/bin/initdb --encoding=UTF8 -D $PGDIR
   NEED_INIT=true
 fi
 
-chmod 700 /var/lib/postgresql/17/main
+chmod 700 /var/lib/postgresql/18/main
 
 /etc/init.d/postgresql start
 
@@ -34,6 +34,6 @@ fi
 # Start the main application in the background
 echo "Starting LLMPatchbay backend..."
 hypnotoad /usr/src/app/backend.pl &
-# tail -f /var/log/postgresql/postgresql-17-main.log &
+# tail -f /var/log/postgresql/postgresql-18-main.log &
 # Start the job processor in the foreground
 perl /usr/src/app/backend.pl minion worker
