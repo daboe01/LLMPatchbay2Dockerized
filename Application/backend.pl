@@ -901,7 +901,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
             return undef;
         }
     }
-    elsif ($current_block->{type} eq '45') # xml processor
+    elsif ($current_block->{type} eq '53') # xml processor
     {
         my $dom = Mojo::DOM->new($inputs->{Input});
         my $nodes = $dom->find($current_block->{output_value});
