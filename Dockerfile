@@ -26,8 +26,12 @@ RUN --mount=target=/var/lib/apt/lists,type=cache --mount=type=cache,target=/var/
     python3 \
     python3-pip \
     python3-venv && \
+    # Add the official PostgreSQL repository
     /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y && \
-    apt-get install --no-install-recommends -y postgresql postgresql-18-pgvector
+    # Install PostgreSQL 17 and its pgvector extension explicitly
+    apt-get install --no-install-recommends -y \
+    postgresql-17 \
+    postgresql-17-pgvector
 
 # Copy Perl dependencies file
 COPY --chown=postgres:postgres cpanfile /usr/src/app
@@ -38,10 +42,10 @@ RUN --mount=type=cache,target=/root/.cpanm cpanm -v -f --installdeps --notest . 
 # Configure R and PostgreSQL
 RUN ln -s /usr/bin/R /usr/local/bin/R && \
     R -e "install.packages(c('rjson'), dependencies=TRUE, repos='http://cran.rstudio.com/')" && \
-    echo "local all  all  trust" > /etc/postgresql/18/main/pg_hba.conf && \
-    echo "host  all  all  127.0.0.1/32 trust" >> /etc/postgresql/18/main/pg_hba.conf && \
-    echo "host  all  all  ::1/128    trust" >> /etc/postgresql/18/main/pg_hba.conf && \
-    echo "listen_addresses='*'" >> /etc/postgresql/18/main/postgresql.conf && \
+    echo "local all  all  trust" > /etc/postgresql/17/main/pg_hba.conf && \
+    echo "host  all  all  127.0.0.1/32 trust" >> /etc/postgresql/17/main/pg_hba.conf && \
+    echo "host  all  all  ::1/128    trust" >> /etc/postgresql/17/main/pg_hba.conf && \
+    echo "listen_addresses='*'" >> /etc/postgresql/17/main/postgresql.conf && \
     chown -R postgres:postgres /var/run/postgresql
 
 # --- Python Setup ---
