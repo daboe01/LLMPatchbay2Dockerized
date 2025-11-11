@@ -1425,6 +1425,48 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
             return $error_msg;
         }
     }
+    elsif ($current_block->{type} eq '54') # OpenRouter
+    {
+        my $prompt = $self->prepare_llm_prompt($inputs->{Input}, $inputs->{PromptTemplate});
+        my $ua = Mojo::UserAgent->new;
+        $ua->insecure(1); # Disable certificate validation
+        $ua->inactivity_timeout(0);
+        $ua->connect_timeout(0);
+
+        my $api_key = $inputs->{APIKey};
+        return "ERROR: API Key input is missing for OpenRouter block." unless $api_key;
+
+        my $settings = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
+        my $model = $settings->{model} || 'openai/gpt-4o'; # Default model, can be any model from OpenRouter
+
+        my $params = {
+            model       => $model,
+            temperature => $settings->{temperature} || 0.1,
+            messages    => [{ role => "user", content => $prompt }]
+        };
+
+        my $tx = $ua->build_tx(
+        POST => "https://openrouter.ai/api/v1/chat/completions" => {
+            'Content-Type'  => 'application/json',
+            'Authorization' => "Bearer $api_key",
+            'HTTP-Referer'  => 'YOUR_SITE_URL',  # Optional: Replace with your site URL
+            'X-Title'       => 'YOUR_SITE_NAME' # Optional: Replace with your site name
+        } => json => $params
+        );
+
+        my $res = $ua->start($tx)->result;
+
+        if ($res->is_success) {
+            return $res->json->{choices}->[0]->{message}->{content};
+        }
+
+        warn Dumper $res->json; # Log error for debugging
+        my $error_message = "ERROR: OpenRouter API call failed.";
+        if (my $error = $res->json->{error}) {
+            $error_message .= " " . $error->{message} if $error->{message};
+        }
+        return $error_message;
+    }
     elsif ($current_block->{type} eq '52') # langextract
     {
         # --- Get static settings from the block's GUI configuration ---
