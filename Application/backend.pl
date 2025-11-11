@@ -1441,7 +1441,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         my $params = {
             model       => $model,
-            temperature => $settings->{temperature} || 0.1,
+            temperature => ($settings->{temperature} + 0.0) || 0.1,
             messages    => [{ role => "user", content => $prompt }]
         };
 
