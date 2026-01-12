@@ -77,6 +77,13 @@ def main():
         default=1,
         help="The number of extraction passes to perform."
     )
+    # NEW ARGUMENT FOR TIMEOUT
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=300,
+        help="The HTTP request timeout in seconds (default: 300)."
+    )
     args = parser.parse_args()
 
     # --- 1. Load Input Data ---
@@ -121,8 +128,10 @@ def main():
     # --- 3. Run Extraction ---
     logger.info(f"Running extraction with model '{args.model_id}'...")
     logger.info(f"Connecting to TGI server via base URL: {base_url}")
+    logger.info(f"Timeout set to {args.timeout} seconds.")
 
     try:
+        # Added 'timeout' parameter here
         result: AnnotatedDocument = lx.extract(
             text_or_documents=input_text,
             prompt_description=prompt,
@@ -133,7 +142,8 @@ def main():
             fence_output=False,
             max_char_buffer=args.max_char_buffer,
             max_workers=args.max_workers,
-            extraction_passes=args.extraction_passes
+            extraction_passes=args.extraction_passes,
+            timeout=args.timeout  # <--- Fix applied here
         )
         logger.info("Extraction successful!")
 
