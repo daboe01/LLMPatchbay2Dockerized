@@ -1,12 +1,8 @@
-# langextract-tgi/langextract_tgi/schema.py
-
 from __future__ import annotations
 from typing import Any, Iterable
 
 from langextract.core import schema
 from langextract import data as lx_data
-
-# This line will prove the correct file is being loaded
 
 class TgiSchema(schema.BaseSchema):
     """
@@ -20,6 +16,14 @@ class TgiSchema(schema.BaseSchema):
     @property
     def schema_dict(self) -> dict[str, Any]:
         return self._schema_dict
+
+    @property
+    def requires_raw_output(self) -> bool:
+        """
+        Indicates that this schema expects raw text output from the model
+        (which is then parsed, usually as JSON).
+        """
+        return True
 
     @classmethod
     def from_examples(
