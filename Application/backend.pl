@@ -1524,7 +1524,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         # Execute the command and capture its STDOUT
         warn "Running langextract command: $command";
-        my $output = decode 'UTF-8', `$command`; # Capture STDERR as well: `$command 2>&1`
+        my $output = decode 'UTF-8', `$command 2>&1`; # Capture STDERR as well: `$command 2>&1`
         my $exit_code = $? >> 8;
 
         # Check for errors
