@@ -81,7 +81,7 @@ def main():
     parser.add_argument(
         "--timeout",
         type=int,
-        default=300,
+        default=9000,
         help="The HTTP request timeout in seconds (default: 300)."
     )
     args = parser.parse_args()
