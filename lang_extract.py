@@ -123,6 +123,8 @@ def main():
         logger.info(f"Loading chat template from '{args.chat_template_file}'...")
         model_params['chat_template'] = load_from_file(args.chat_template_file)
 
+    model_params['timeout'] = args.timeout
+
     prefixed_model_id = f"tgi::{args.model_id}"
 
     # --- 3. Run Extraction ---
@@ -142,8 +144,7 @@ def main():
             fence_output=False,
             max_char_buffer=args.max_char_buffer,
             max_workers=args.max_workers,
-            extraction_passes=args.extraction_passes,
-            timeout=args.timeout  # <--- Fix applied here
+            extraction_passes=args.extraction_passes
         )
         logger.info("Extraction successful!")
 
