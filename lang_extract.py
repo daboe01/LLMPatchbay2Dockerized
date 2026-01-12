@@ -85,6 +85,9 @@ def main():
     examples_data = load_from_file(args.examples_file, is_json=True)
     prompt = load_from_file(args.prompt_file)
 
+    if isinstance(examples_data, dict):
+        examples_data = [examples_data]
+
     examples = [
         lx.data.ExampleData(
             text=example['text'],
