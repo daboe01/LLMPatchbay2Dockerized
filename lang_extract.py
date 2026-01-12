@@ -105,7 +105,6 @@ def main():
 
     model_params = {
         "base_url": base_url,
-        "api_key": api_token,
         "temperature": 0.01
     }
 
