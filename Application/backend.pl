@@ -1529,7 +1529,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
 
         # Check for errors
         if ($exit_code != 0) {
-            warn "langextract script failed with exit code $exit_code. Output: $output";
+            warn "langextract script ($command) failed with exit code $exit_code. Output: $output";
             return "Error: langextract script ($command) failed. See logs for details (exit code $exit_code. Output: $output).";
         }
 
