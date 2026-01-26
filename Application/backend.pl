@@ -20,7 +20,7 @@ use IPC::Open3;
 
 no warnings 'uninitialized';
 
-$ENV{MOJO_MAX_MESSAGE_SIZE} = 3_073_741_824;
+# $ENV{MOJO_MAX_MESSAGE_SIZE} = 3_073_741_824;
 
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
