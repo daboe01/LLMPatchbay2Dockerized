@@ -698,6 +698,12 @@ $r->get('/LLM/:table'=> sub
         return;
     }
 
+    if ($table eq 'input_data')
+    {
+        $self->render(json => $self->pg->db->select($table, [qw/id insertion_time idprompt title/])->hashes);
+        return;
+    }
+
     $self->render(json => $self->pg->db->select($table, [qw/*/])->hashes);
 });
 
