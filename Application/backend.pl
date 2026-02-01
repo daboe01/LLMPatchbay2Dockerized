@@ -20,7 +20,7 @@ use IPC::Open3;
 
 no warnings 'uninitialized';
 
-# $ENV{MOJO_MAX_MESSAGE_SIZE} = 3_073_741_824;
+$ENV{MOJO_MAX_MESSAGE_SIZE} = 3_073_741_824;
 
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 
@@ -400,19 +400,28 @@ $r->post('/LLM/import_embedding_dataset/:pk' => [pk => qr/\d+/] => sub
 
 # Kicks off a background job to process all input_data for a project.
 $r->post('/LLM/batch_process' => sub {
-    my $self = shift;
+     my $self = shift;
 
-    # Get all input_data IDs that need processing.
-    my $input_ids = $self->pg->db->select('input_data', ['id'])->hashes->map(sub { $_->{id} })->to_array;
+     # Query: Select input IDs where no corresponding output entry exists
+     my $sql = q{
+         SELECT i.id
+         FROM input_data i
+         LEFT JOIN output_data o ON i.id = o.idinput
+         WHERE o.idinput IS NULL
+     };
+
+    # Get the list of IDs
+    my $input_ids = $self->pg->db->query($sql)->hashes->map(sub { $_->{id} })->to_array;
     my $total_items = scalar @$input_ids;
 
+    # Enqueue jobs only for the unprocessed items
     foreach my $idinput (@$input_ids) {
         $self->minion->enqueue(process_single_input => [$idinput]);
     }
 
     $self->render(json => {
-                              message => "Batch process started successfully for $total_items items.",
-                          });
+          message => "Batch process started. Queued $total_items items (skipped inputs with existing outputs).",
+    });
 });
 
 $r->post('/LLM/run_stateless/:key' => [key => qr/\d+/] => sub
@@ -691,7 +700,6 @@ $r->get('/LLM/:table'=> sub
     my $self    = shift;
     my $table   = $self->param('table');
 
-
     if ($table eq 'blocks')
     {
         $self->render(json => $self->pg->db->select($table, [qw/*/])->hashes);
@@ -700,7 +708,8 @@ $r->get('/LLM/:table'=> sub
 
     if ($table eq 'input_data')
     {
-        $self->render(json => $self->pg->db->select($table, [qw/id insertion_time idprompt title/])->hashes);
+        # Fetch all columns (*), no WHERE clause, limit to 500, newest first
+        $self->render(json => $self->pg->db->select($table, undef, undef, {limit => 500, order_by => 'id DESC'})->hashes);
         return;
     }
 
@@ -1694,6 +1703,106 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
 
     return $text;
 };
+
+$r->get('/LLM/minion/status' => sub {
+    my $self = shift;
+
+    # Aggregate minion_jobs by date (last 30 days)
+    my $sql = q{
+        SELECT
+        created::date AS date,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE state = 'finished') AS finished,
+        COUNT(*) FILTER (WHERE state = 'failed')   AS failed,
+        COUNT(*) FILTER (WHERE state = 'active')   AS active,
+        COUNT(*) FILTER (WHERE state = 'inactive') AS inactive
+        FROM minion_jobs
+        GROUP BY created::date
+        ORDER BY created::date DESC
+        LIMIT 30
+    };
+
+    my $results = $self->pg->db->query($sql)->hashes;
+
+    # Format dates nicely if needed, or send as YYYY-MM-DD string
+    $self->render(json => $results);
+});
+
+$r->post('/LLM/run_raw_sql' => sub {
+     my $self = shift;
+
+     # Get raw body content as the SQL query
+     my $sql = Encode::decode('UTF-8', $self->req->body);
+
+     unless ($sql) {
+     return $self->render(json => { error => "Empty SQL query." });
+    }
+
+    my $result;
+    eval {
+        # Execute query and fetch results as a collection of hashes
+        $result = $self->pg->db->query($sql)->hashes;
+    };
+
+    if (my $err = $@) {
+        $self->app->log->error("SQL Error: $err");
+        return $self->render(json => { error => "$err" });
+    }
+
+    # If it was a non-returning statement (UPDATE/DELETE), return success message
+    if (!$result) {
+        return $self->render(json => { message => "Query executed successfully." });
+    }
+
+    $self->render(json => $result);
+});
+
+$r->post('/LLM/run_sql_csv' => sub {
+     my $self = shift;
+
+     # Accept SQL from a form parameter named 'sql' (for browser submission)
+     # or raw body (fallback)
+     my $sql = $self->param('sql') || Encode::decode('UTF-8', $self->req->body);
+
+     unless ($sql) {
+         return $self->render(text => "Empty SQL query.", status => 400);
+     }
+
+    my $results;
+    eval {
+        $results = $self->pg->db->query($sql)->hashes;
+    };
+
+    if (my $err = $@) {
+        return $self->render(text => "SQL Error: $err", status => 500);
+    }
+
+    unless ($results && @$results) {
+        return $self->render(text => "No results found.", status => 204);
+    }
+
+    # Generate CSV in memory
+    my $csv_string = '';
+    open my $fh, '>', \$csv_string;
+    my $csv = Text::CSV->new({ binary => 1, auto_diag => 1 });
+
+    # Headers
+    my @headers = keys %{$results->[0]};
+    $csv->say($fh, \@headers);
+
+    # Rows
+    foreach my $row (@$results) {
+        # Slice the hash to ensure column order matches headers
+        $csv->say($fh, [ @{$row}{@headers} ]);
+    }
+    close $fh;
+
+    # Set headers for file download
+    $self->res->headers->content_type('text/csv; charset=utf-8');
+    $self->res->headers->content_disposition('attachment; filename="query_result.csv"');
+
+    $self->render(text => $csv_string);
+});
 
 ###################################################################
 # main()

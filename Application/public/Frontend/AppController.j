@@ -50,6 +50,68 @@ BaseURL = HostURL + "/";
 @import "LaceViewController.j";
 @import <Cup/Cup.j>
 
+// A simple view to render the job status in the table
+@implementation DailyProgressView : CPView
+{
+    CPProgressIndicator progressBar;
+    CPTextField         statsLabel;
+}
+
+- (id)initWithFrame:(CGRect)aFrame
+{
+    self = [super initWithFrame:aFrame];
+    if (self)
+    {
+        // Stats Label (e.g., "500/1000 (5 Failed)")
+        statsLabel = [[CPTextField alloc] initWithFrame:CGRectMake(0, 2, 120, 24)];
+        [statsLabel setFont:[CPFont systemFontOfSize:10]];
+        [statsLabel setAlignment:CPRightTextAlignment];
+        [self addSubview:statsLabel];
+
+        // Progress Bar
+        progressBar = [[CPProgressIndicator alloc] initWithFrame:CGRectMake(125, 4, CGRectGetWidth(aFrame) - 130, 16)];
+        [progressBar setIndeterminate:NO]; 
+        [progressBar setControlSize:CPRegularControlSize];
+        [progressBar setMinValue:0.0];
+        [self addSubview:progressBar];
+    }
+    return self;
+}
+
+- (void)setObjectValue:(id)anObject
+{
+    // Extract values from the JSON object
+    var total    = [anObject valueForKey:@"total"] || 0;
+    var finished = [anObject valueForKey:@"finished"] || 0;
+    var failed   = [anObject valueForKey:@"failed"] || 0;
+    var active   = [anObject valueForKey:@"active"] || 0;
+
+    // Calculate max value for the bar
+    [progressBar setMaxValue:total];
+    [progressBar setDoubleValue:finished];
+
+    // Create the label string
+    var labelString = finished + "/" + total;
+    
+    // Add active/failed info if relevant
+    if (active > 0) labelString += " [" + active + " run]";
+    if (failed > 0) labelString += " (" + failed + " err)";
+
+    [statsLabel setStringValue:labelString];
+
+    // Color logic: Red text if failures exist, Blue if running, Green if done
+    if (failed > 0) {
+        [statsLabel setTextColor:[CPColor redColor]];
+    } else if (active > 0) {
+        [statsLabel setTextColor:[CPColor blueColor]];
+    } else if (finished == total && total > 0) {
+        [statsLabel setTextColor:[CPColor colorWithCalibratedRed:0.0 green:0.5 blue:0.0 alpha:1.0]];
+    } else {
+        [statsLabel setTextColor:[CPColor blackColor]];
+    }
+}
+@end
+
 @implementation FSArrayController(baseReloadFix)
 
 - (void)fullyReloadAsync
@@ -150,6 +212,68 @@ BaseURL = HostURL + "/";
     id queueController;
 
     int importPromptID;
+
+    CPPanel         jobsPanel;
+    CPTableView     jobsTable;
+    CPArray         jobsData;
+    CPTimer         jobsPollingTimer;
+
+    CPTextView sqlInputView;
+    CPTextView sqlOutputView;
+}
+
+- (void)initJobsPanel
+{
+    if (jobsPanel)
+    {
+        [jobsPanel makeKeyAndOrderFront:self];
+        [self startJobsPolling];
+        return;
+    }
+
+    // 1. Create Panel (Same as before)
+    jobsPanel = [[CPPanel alloc] initWithContentRect:CGRectMake(100, 100, 500, 300) styleMask:CPHUDBackgroundWindowMask | CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
+    [jobsPanel setTitle:@"Batch Progress (Daily)"];
+    [jobsPanel setFloatingPanel:YES];
+    [jobsPanel setDelegate:self];
+
+    var contentView = [jobsPanel contentView];
+
+    // 2. ScrollView (Same as before)
+    var scrollView = [[CPScrollView alloc] initWithFrame:CGRectInset([contentView bounds], 10, 10)];
+    [scrollView setAutoresizingMask:CPViewWidthSizable | CPViewHeightSizable];
+    
+    // 3. TableView
+    jobsTable = [[CPTableView alloc] initWithFrame:[scrollView bounds]];
+    [jobsTable setDataSource:self];
+    [jobsTable setDelegate:self];
+    [jobsTable setUsesAlternatingRowBackgroundColors:YES];
+    [jobsTable setRowHeight:26.0];
+
+    // --- NEW COLUMNS ---
+
+    // Column 1: Date
+    var dateColumn = [[CPTableColumn alloc] initWithIdentifier:@"date"];
+    [[dateColumn headerView] setStringValue:@"Date"];
+    [dateColumn setWidth:100.0];
+    [jobsTable addTableColumn:dateColumn];
+
+    // Column 2: Progress (Custom View)
+    var progressColumn = [[CPTableColumn alloc] initWithIdentifier:@"progress"];
+    [[progressColumn headerView] setStringValue:@"Progress (Finished/Total)"];
+    [progressColumn setWidth:350.0]; // Wider for the bar
+    
+    // Use the new DailyProgressView
+    var progressProto = [[DailyProgressView alloc] initWithFrame:CGRectMake(0,0,350,26)];
+    [progressColumn setDataView:progressProto];
+    
+    [jobsTable addTableColumn:progressColumn];
+
+    [scrollView setDocumentView:jobsTable];
+    [contentView addSubview:scrollView];
+
+    [jobsPanel makeKeyAndOrderFront:self];
+    [self startJobsPolling];
 }
 
 // this is just to force the prompts popup items in the playground such in case a new prompt is added and the user wants to test it immediately
@@ -432,6 +556,36 @@ BaseURL = HostURL + "/";
     if (someConnection._senderButton && [someConnection._senderButton isKindOfClass:CPButton])
         [self resetButtonBusy:someConnection._senderButton];
 
+    if (someConnection.isSQL)
+    {
+        var resultString = data; // CPData behaves like string in many contexts here
+        try {
+            // Parse JSON to pretty-print it
+            var json = JSON.parse(resultString);
+            var prettyJson = JSON.stringify(json, null, 4);
+            [sqlOutputView setString:prettyJson];
+        } catch (e) {
+            // If raw text or error
+            [sqlOutputView setString:resultString];
+        }
+        return;
+   }
+
+   if (someConnection.isJobStatus)
+   {
+        // Simple JSON parse
+        try {
+             jobsData = JSON.parse(data);
+             [jobsTable reloadData];
+        }
+        catch (e)
+        {
+            CPLog("Error parsing job status: " + e);
+        }
+
+       return;
+    }
+
     var urlString = [[[someConnection currentRequest] URL] absoluteString];
 
     if (urlString.indexOf(BaseURL + "LLM/delete_all_inputs") >= 0)
@@ -535,6 +689,130 @@ BaseURL = HostURL + "/";
     [laceViewController setEditWindow:editWindow];
     [laceViewController setAddBlocksView:[addBlocksWindow contentView]];
 
+    [self showJobsMonitor:self];
+}
+
+// Button Action to show the panel
+- (void)showJobsMonitor:(id)sender
+{
+    [self initJobsPanel];
+}
+
+// --- Polling Logic ---
+
+- (void)startJobsPolling
+{
+    if (!jobsPollingTimer || ![jobsPollingTimer isValid])
+    {
+        [self fetchJobsStatus]; // Fetch immediately
+        jobsPollingTimer = [CPTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(fetchJobsStatus) userInfo:nil repeats:YES];
+    }
+}
+
+- (void)stopJobsPolling
+{
+    if (jobsPollingTimer)
+    {
+        [jobsPollingTimer invalidate];
+        jobsPollingTimer = nil;
+    }
+}
+
+// Window Delegate to stop polling when closed
+- (void)windowWillClose:(CPNotification)aNotification
+{
+    if ([aNotification object] === jobsPanel)
+    {
+        [self stopJobsPolling];
+    }
+}
+
+// --- Data Fetching ---
+
+- (void)fetchJobsStatus
+{
+    var request = [CPURLRequest requestWithURL:BaseURL + "LLM/minion/status"];
+    [request setHTTPMethod:"GET"];
+    var conn = [CPURLConnection connectionWithRequest:request delegate:self];
+    conn.isJobStatus = YES; // Mark connection to identify it in callback
+}
+
+- (int)numberOfRowsInTableView:(CPTableViewTableView:(CPTableView)aTableView
+{
+    if (aTableView === jobsTable) return [jobsData count];
+    return 0;
+}
+
+- (id)tableView:(CPTableView)aTableView objectValueForTableColumn:(CPTableColumn)aColumn row:(int)rowIndex
+{
+    if (aTableView === jobsTable)
+    {
+        var item = jobsData[rowIndex];
+        
+        if ([[aColumn identifier] isEqualToString:@"date"]) 
+        {
+            // The backend sends YYYY-MM-DD string, usually acceptable as is.
+            return item.date;
+        }
+        
+        // Pass the whole item object to the custom view so it can extract total/finished/etc
+        if ([[aColumn identifier] isEqualToString:@"progress"]) return item; 
+    }
+    return nil;
+}
+
+- (void)runSQL:(id)sender
+{
+    var sql = [sqlInputView string];
+    
+    if (!sql || sql.length === 0) {
+        alert("Please enter a SQL query.");
+        return;
+    }
+
+    [sqlOutputView setString:"Executing..."];
+
+    var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/run_raw_sql"];
+    [myreq setHTTPMethod:"POST"];
+    [myreq setHTTPBody:sql];
+    
+    var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
+    
+    // Tag this connection so we know how to handle the response
+    connection.isSQL = YES; 
+    
+    [self setButtonBusy:sender];
+    connection._senderButton = sender;
+}
+
+- (void)downloadSQL:(id)sender
+{
+    var sql = [sqlInputView string];
+    
+    if (!sql || sql.length === 0) {
+        alert("Please enter a SQL query.");
+        return;
+    }
+
+    // Create a hidden HTML form to submit the POST request for download
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = BaseURL + "LLM/run_sql_csv";
+    form.style.display = "none";
+    form.target = "_blank"; // Optional: Ensures download doesn't block UI if server hangs
+
+    // Add the SQL as a textarea input (handles newlines/quotes better than input type=text)
+    var input = document.createElement("textarea");
+    input.name = "sql";
+    input.value = sql;
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    
+    form.submit();
+    
+    // Clean up
+    document.body.removeChild(form);
 }
 
 @end

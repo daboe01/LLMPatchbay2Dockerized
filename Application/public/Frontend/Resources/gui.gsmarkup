@@ -194,6 +194,22 @@
                         <ButtonBar target="#CPOwner.globalsController" plusButtonAction="insert:"/>
                     </vbox>
                 </tabViewItem>
+                <tabViewItem title="SQL">
+                    <vbox>
+                        <splitView vertical="NO" autosaveName="vsplitter_sql_main">
+                            <vbox>
+                                <label>SQL Query:</label>
+                                <scrollView hasHorizontalScroller="NO">
+                                    <textView id="sql_input_view" editable="YES" font="Monaco 12"/>
+                                </scrollView>
+                                <hbox>
+                                    <button title="Execute (JSON)" target="#CPOwner" action="runSQL:"/>
+                                    <button title="Download CSV" target="#CPOwner" action="downloadSQL:"/>
+                                    <hspace/>
+                                </hbox>
+                            </vbox>                        </splitView>
+                    </vbox>
+                </tabViewItem>
             </tabView>
         </vbox>
     </window>
@@ -212,6 +228,8 @@
     <outlet source="CPOwner" target="project_import_export_window" label="projectImportExportWindow"/>
     <outlet source="CPOwner" target="importFromUploadWindow" label="importFromUploadWindow"/>
     <outlet source="CPOwner" target="project_json" label="projectJSON"/>
+    <outlet source="CPOwner" target="sql_input_view" label="sqlInputView"/>
+    <outlet source="CPOwner" target="sql_output_view" label="sqlOutputView"/>
 </connectors>
 
 
