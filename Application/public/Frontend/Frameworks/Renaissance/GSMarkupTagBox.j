@@ -113,7 +113,7 @@
 {
   platformObject = [platformObject init];
     [platformObject setBorderType:CPLineBorder];
-    [platformObject setBoxType:CPBoxCustom];
+   // [platformObject setBoxType:CPBoxCustom];
 
   /* title */
   {

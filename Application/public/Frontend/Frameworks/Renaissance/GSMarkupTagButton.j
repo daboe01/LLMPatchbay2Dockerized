@@ -299,7 +299,7 @@
 	    /* The default for buttons having an icon/image is supposed
 	     * to be a RegularSquareBezelStyle.
 	     */
-	    [platformObject setBezelStyle: CPRegularSquareBezelStyle];
+	    //[platformObject setBezelStyle: CPRegularSquareBezelStyle];
 
 	    /* But judging by Apple's own applications, it seems that
 	     * the default style for buttons having an icon/image is

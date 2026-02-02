@@ -168,7 +168,7 @@
 {	platformObject = [super initPlatformObject: platformObject];
 	[platformObject setTabViewType: [self type]];
     [platformObject._box setBorderType:CPLineBorder];
-    [platformObject._box setBoxType:CPBoxCustom];
+    //[platformObject._box setBoxType:CPBoxCustom];
 
     var  i, count = _content? _content.length:0;
 	for (i = 0 ; i < count; i++)
@@ -331,7 +331,6 @@
             var peek;
             if (peek = [[item attributes] objectForKey: "enabledBinding"])
             {
-                debugger
                 var r = [peek rangeOfString: @"."];
                 var objectName = [peek substringToIndex:r.location];
                 var target = [[CPBundle sharedGSMarkupDecoder] _getObjectForIdString:objectName];
@@ -437,7 +436,7 @@
     if(styleString === 'textual')
     {   [platformObject setDatePickerStyle: CPTextFieldAndStepperDatePickerStyle];
         [_attributes setObject: @"120" forKey: @"width"];
-        [_attributes setObject: @"29" forKey: @"height"];
+        [_attributes setObject: @"23" forKey: @"height"];
         var elements = CPYearMonthDayDatePickerElementFlag;
         
         if ([self boolValueForAttribute: @"hm"] == 1)
