@@ -737,7 +737,7 @@ BaseURL = HostURL + "/";
     conn.isJobStatus = YES; // Mark connection to identify it in callback
 }
 
-- (int)numberOfRowsInTableView:(CPTableViewTableView:(CPTableView)aTableView
+- (int)numberOfRowsInTableView:(CPTableView)aTableView
 {
     if (aTableView === jobsTable) return [jobsData count];
     return 0;
