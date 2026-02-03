@@ -91,8 +91,8 @@ BaseURL = HostURL + "/";
     var active   = anObject.active || 0;
 
     // Calculate max value for the bar
-    [progressBar setMaxValue:total];
-    [progressBar setDoubleValue:finished];
+    [progressBar setMaxValue:1];
+    [progressBar setDoubleValue:(failed + finished) / total];
 
     // Create the label string
     var labelString = finished + "/" + total;
