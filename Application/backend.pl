@@ -1722,7 +1722,7 @@ $r->get('/LLM/minion/status' => sub {
         LIMIT 30
     };
 
-    my $results = $self->pg->db->query($sql)->hashes;
+    my $results = $self->Minion->db->query($sql)->hashes;
 
     # Format dates nicely if needed, or send as YYYY-MM-DD string
     $self->render(json => $results);
