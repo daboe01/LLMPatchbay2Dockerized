@@ -80,6 +80,7 @@ BaseURL = HostURL + "/";
 
 - (void)setObjectValue:(id)anObject
 {
+debugger
     // Guard against null/undefined
     if (!anObject) return;
 
@@ -89,7 +90,7 @@ BaseURL = HostURL + "/";
     var finished = anObject.finished || 0;
     var failed   = anObject.failed || 0;
     var active   = anObject.active || 0;
-debugger
+
     // Calculate max value for the bar
     [progressBar setMaxValue:1];
     [progressBar setDoubleValue:(failed + finished) / total];
