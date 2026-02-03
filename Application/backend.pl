@@ -709,8 +709,8 @@ $r->get('/LLM/:table'=> sub
 
     if ($table eq 'input_data')
     {
-        # Fetch all columns (*), no WHERE clause, limit to 500, newest first
-        $self->render(json => $self->pg->db->select($table, [qw/*/], undef, {limit => 500, order_by => 'id DESC'})->hashes);
+        # Use ->query for raw SQL to ensure ORDER BY and LIMIT apply correctly
+        $self->render(json => $self->pg->db->query('SELECT * FROM input_data ORDER BY id DESC LIMIT 500')->hashes);
         return;
     }
 
