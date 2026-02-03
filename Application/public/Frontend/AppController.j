@@ -78,14 +78,32 @@ BaseURL = HostURL + "/";
     return self;
 }
 
+// Restore ivars when the table view clones the prototype
+- (id)initWithCoder:(CPCoder)aCoder
+{
+    self = [super initWithCoder:aCoder];
+    if (self)
+    {
+        progressBar = [aCoder decodeObjectForKey:@"progressBar"];
+        statsLabel = [aCoder decodeObjectForKey:@"statsLabel"];
+    }
+    return self;
+}
+
+// FIX: Save ivars so they can be cloned
+- (void)encodeWithCoder:(CPCoder)aCoder
+{
+    [super encodeWithCoder:aCoder];
+    [aCoder encodeObject:progressBar forKey:@"progressBar"];
+    [aCoder encodeObject:statsLabel forKey:@"statsLabel"];
+}
+
 - (void)setObjectValue:(id)anObject
 {
-debugger
     // Guard against null/undefined
     if (!anObject) return;
 
     // anObject is a plain JS object, so we access properties directly
-    // instead of using [anObject valueForKey:@"key"]
     var total    = anObject.total || 0;
     var finished = anObject.finished || 0;
     var failed   = anObject.failed || 0;
@@ -93,7 +111,12 @@ debugger
 
     // Calculate max value for the bar
     [progressBar setMaxValue:1];
-    [progressBar setDoubleValue:(failed + finished) / total];
+    
+    // Safety check for divide by zero
+    if (total > 0)
+        [progressBar setDoubleValue:(failed + finished) / total];
+    else
+        [progressBar setDoubleValue:0.0];
 
     // Create the label string
     var labelString = finished + "/" + total;
