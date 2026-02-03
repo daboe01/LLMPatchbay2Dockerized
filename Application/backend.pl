@@ -276,7 +276,7 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
          $file->remove;
     }
 
-    $self->render(text => 'OK '.$i.$dir);
+    $self->render(text => 'OK '.$i.@files);
 });
 
 $r->get('/LLM/get_data_from_dataset/:dataset_name' => sub
