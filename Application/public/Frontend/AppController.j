@@ -603,7 +603,6 @@ BaseURL = HostURL + "/";
    {
         // Simple JSON parse
         try {
-        debugger
              jobsData = JSON.parse(data);
              [jobsTable reloadData];
         }
@@ -763,7 +762,6 @@ BaseURL = HostURL + "/";
     var request = [CPURLRequest requestWithURL:BaseURL + "LLM/minion/status"];
     [request setHTTPMethod:"GET"];
     var conn = [CPURLConnection connectionWithRequest:request delegate:self];
-debugger
     conn.isJobStatus = YES; // Mark connection to identify it in callback
 }
 
