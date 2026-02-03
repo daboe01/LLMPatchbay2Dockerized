@@ -80,11 +80,15 @@ BaseURL = HostURL + "/";
 
 - (void)setObjectValue:(id)anObject
 {
-    // Extract values from the JSON object
-    var total    = [anObject valueForKey:@"total"] || 0;
-    var finished = [anObject valueForKey:@"finished"] || 0;
-    var failed   = [anObject valueForKey:@"failed"] || 0;
-    var active   = [anObject valueForKey:@"active"] || 0;
+    // Guard against null/undefined
+    if (!anObject) return;
+
+    // anObject is a plain JS object, so we access properties directly
+    // instead of using [anObject valueForKey:@"key"]
+    var total    = anObject.total || 0;
+    var finished = anObject.finished || 0;
+    var failed   = anObject.failed || 0;
+    var active   = anObject.active || 0;
 
     // Calculate max value for the bar
     [progressBar setMaxValue:total];
@@ -99,7 +103,7 @@ BaseURL = HostURL + "/";
 
     [statsLabel setStringValue:labelString];
 
-    // Color logic: Red text if failures exist, Blue if running, Green if done
+    // Color logic
     if (failed > 0) {
         [statsLabel setTextColor:[CPColor redColor]];
     } else if (active > 0) {
