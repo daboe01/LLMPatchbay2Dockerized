@@ -276,8 +276,7 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
          $file->remove;
     }
 
-    my $debug ="$i @files **";
-    $self->render(text => 'OK '.$debug);
+    $self->render(text => 'OK');
 });
 
 $r->get('/LLM/get_data_from_dataset/:dataset_name' => sub
@@ -711,7 +710,7 @@ $r->get('/LLM/:table'=> sub
     if ($table eq 'input_data')
     {
         # Fetch all columns (*), no WHERE clause, limit to 500, newest first
-        $self->render(json => $self->pg->db->select($table, undef, undef, {limit => 500, order_by => 'id DESC'})->hashes);
+        $self->render(json => $self->pg->db->select($table, [qw/*/], undef, {limit => 500, order_by => 'id DESC'})->hashes);
         return;
     }
 
