@@ -580,6 +580,7 @@ debugger
    {
         // Simple JSON parse
         try {
+        debugger
              jobsData = JSON.parse(data);
              [jobsTable reloadData];
         }
@@ -759,7 +760,7 @@ debugger
             // The backend sends YYYY-MM-DD string, usually acceptable as is.
             return item.date;
         }
-debugger
+
         // Pass the whole item object to the custom view so it can extract total/finished/etc
         if ([[aColumn identifier] isEqualToString:@"progress"])
             return item;
