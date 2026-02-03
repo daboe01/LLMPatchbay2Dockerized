@@ -22,7 +22,8 @@ no warnings 'uninitialized';
 
 $ENV{MOJO_MAX_MESSAGE_SIZE} = 3_073_741_824;
 
-helper pg => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
+helper pg  => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
+helper pgm => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/minion') };
 
 #
 # begin minion setup
@@ -275,7 +276,7 @@ $r->post('/LLM/import_from_upload/:id' => [id => qr/\d+/] => sub {
          $file->remove;
     }
 
-    $self->render(text => 'OK '.$i);
+    $self->render(text => 'OK '.$i.$dir);
 });
 
 $r->get('/LLM/get_data_from_dataset/:dataset_name' => sub
@@ -1722,7 +1723,7 @@ $r->get('/LLM/minion/status' => sub {
         LIMIT 30
     };
 
-    my $results = $self->Minion->db->query($sql)->hashes;
+    my $results = $self->pgm->db->query($sql)->hashes;
 
     # Format dates nicely if needed, or send as YYYY-MM-DD string
     $self->render(json => $results);
