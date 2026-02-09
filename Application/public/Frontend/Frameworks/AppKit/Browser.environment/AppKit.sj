@@ -35664,7 +35664,7 @@ var meta_class = the_class.isa;class_addMethods(the_class, [new objj_method(sel_
 
 ,["void","CPCoder"])]);
 }
-p;13;CPTableView.jt;320436;@STATIC;1.0;I;20;Foundation/CPArray.jI;23;Foundation/CPIndexSet.ji;24;CPDragServer_Constants.ji;12;CGGradient.ji;7;CPCib.ji;17;CPCompatibility.ji;11;CPControl.ji;13;CPImageView.ji;12;CPScroller.ji;14;CPScrollView.ji;15;CPTableColumn.ji;19;CPTableHeaderView.ji;8;CPText.ji;15;_CPCornerView.jt;320137;objj_executeFile("Foundation/CPArray.j", NO);objj_executeFile("Foundation/CPIndexSet.j", NO);objj_executeFile("CPDragServer_Constants.j", YES);objj_executeFile("CGGradient.j", YES);objj_executeFile("CPCib.j", YES);objj_executeFile("CPCompatibility.j", YES);objj_executeFile("CPControl.j", YES);objj_executeFile("CPImageView.j", YES);objj_executeFile("CPScroller.j", YES);objj_executeFile("CPScrollView.j", YES);objj_executeFile("CPTableColumn.j", YES);objj_executeFile("CPTableHeaderView.j", YES);objj_executeFile("CPText.j", YES);objj_executeFile("_CPCornerView.j", YES);CPTableViewColumnDidMoveNotification = "CPTableViewColumnDidMoveNotification";
+p;13;CPTableView.jt;323811;@STATIC;1.0;I;20;Foundation/CPArray.jI;23;Foundation/CPIndexSet.ji;24;CPDragServer_Constants.ji;12;CGGradient.ji;7;CPCib.ji;17;CPCompatibility.ji;11;CPControl.ji;13;CPImageView.ji;12;CPScroller.ji;14;CPScrollView.ji;15;CPTableColumn.ji;19;CPTableHeaderView.ji;8;CPText.ji;15;_CPCornerView.jt;323512;objj_executeFile("Foundation/CPArray.j", NO);objj_executeFile("Foundation/CPIndexSet.j", NO);objj_executeFile("CPDragServer_Constants.j", YES);objj_executeFile("CGGradient.j", YES);objj_executeFile("CPCib.j", YES);objj_executeFile("CPCompatibility.j", YES);objj_executeFile("CPControl.j", YES);objj_executeFile("CPImageView.j", YES);objj_executeFile("CPScroller.j", YES);objj_executeFile("CPScrollView.j", YES);objj_executeFile("CPTableColumn.j", YES);objj_executeFile("CPTableHeaderView.j", YES);objj_executeFile("CPText.j", YES);objj_executeFile("_CPCornerView.j", YES);CPTableViewColumnDidMoveNotification = "CPTableViewColumnDidMoveNotification";
 CPTableViewColumnDidResizeNotification = "CPTableViewColumnDidResizeNotification";
 CPTableViewSelectionDidChangeNotification = "CPTableViewSelectionDidChangeNotification";
 CPTableViewSelectionIsChangingNotification = "CPTableViewSelectionIsChangingNotification";
@@ -35883,6 +35883,8 @@ class_addMethods(the_class, [new objj_method(sel_getUid("disableAutomaticResizin
         self._dragOperationDefaultMask = nil;
         self._destinationDragStyle = CPTableViewDraggingDestinationFeedbackStyleRegular;
         self._contentBindingExplicitlySet = NO;
+        if (!(self == null ? self : (self.isa.method_msgSend["hasThemeState:"] || _objj_forward)(self, "hasThemeState:", CPThemeStateHUD)))
+            (self == null ? self : (self.isa.method_msgSend["setBackgroundColor:"] || _objj_forward)(self, "setBackgroundColor:", (CPColor.isa.method_msgSend["whiteColor"] || _objj_forward)(CPColor, "whiteColor")));
         (self == null ? self : (self.isa.method_msgSend["_init"] || _objj_forward)(self, "_init"));
     }
     return self;
@@ -37546,13 +37548,18 @@ class_addMethods(the_class, [new objj_method(sel_getUid("disableAutomaticResizin
         columnHeaderView = (tableColumn == null ? tableColumn : (tableColumn.isa.method_msgSend["headerView"] || _objj_forward)(tableColumn, "headerView")),
         columnHeaderFrame = (columnHeaderView == null ? columnHeaderView : (columnHeaderView.isa.method_msgSend["frame"] || _objj_forward)(columnHeaderView, "frame")),
         frame = CGRectMake(MAX(CGRectGetMinX(columnRect), 0.0), 0.0, CGRectGetWidth(columnHeaderFrame), CGRectGetHeight(visibleRect) + CGRectGetHeight(headerFrame));
-    var dragView = ((___r1 = (CPView.isa.method_msgSend["alloc"] || _objj_forward)(CPView, "alloc")), ___r1 == null ? ___r1 : (___r1.isa.method_msgSend["initWithFrame:"] || _objj_forward)(___r1, "initWithFrame:", frame));
+    var dragView = ((___r1 = (_CPColumnDragDrawingView == null ? _CPColumnDragDrawingView : (_CPColumnDragDrawingView.isa.method_msgSend["alloc"] || _objj_forward)(_CPColumnDragDrawingView, "alloc"))), ___r1 == null ? ___r1 : (___r1.isa.method_msgSend["initWithFrame:"] || _objj_forward)(___r1, "initWithFrame:", frame));
+    (dragView == null ? dragView : (dragView.isa.method_msgSend["setTableView:"] || _objj_forward)(dragView, "setTableView:", self));
+    (dragView == null ? dragView : (dragView.isa.method_msgSend["setColumnIndex:"] || _objj_forward)(dragView, "setColumnIndex:", columnIndex));
     (dragView == null ? dragView : (dragView.isa.method_msgSend["setBackgroundColor:"] || _objj_forward)(dragView, "setBackgroundColor:", (CPColor.isa.method_msgSend["clearColor"] || _objj_forward)(CPColor, "clearColor")));
     (dragView == null ? dragView : (dragView.isa.method_msgSend["setAlphaValue:"] || _objj_forward)(dragView, "setAlphaValue:", isForDragging ? 0.6 : 1.0));
+    (dragView == null ? dragView : (dragView.isa.method_msgSend["setShouldDrawBorders:"] || _objj_forward)(dragView, "setShouldDrawBorders:", isForDragging));
+    (dragView == null ? dragView : (dragView.isa.method_msgSend["setIsSelected:"] || _objj_forward)(dragView, "setIsSelected:", (self.isa.method_msgSend["isColumnSelected:"] || _objj_forward)(self, "isColumnSelected:", columnIndex)));
     var columnVisRect = CGRectIntersection(columnRect, visibleRect);
     frame = CGRectMake(0.0, CGRectGetHeight(headerFrame), CGRectGetWidth(columnRect), CGRectGetHeight(columnVisRect));
     var columnClipView = ((___r1 = (CPView.isa.method_msgSend["alloc"] || _objj_forward)(CPView, "alloc")), ___r1 == null ? ___r1 : (___r1.isa.method_msgSend["initWithFrame:"] || _objj_forward)(___r1, "initWithFrame:", frame));
     (dragView == null ? dragView : (dragView.isa.method_msgSend["addSubview:"] || _objj_forward)(dragView, "addSubview:", columnClipView));
+    (dragView == null ? dragView : (dragView.isa.method_msgSend["setColumnClipView:"] || _objj_forward)(dragView, "setColumnClipView:", columnClipView));
     if (isForDragging)
         self._draggedColumnIsSelected = (self.isa.method_msgSend["isColumnSelected:"] || _objj_forward)(self, "isColumnSelected:", columnIndex);
     var columnLeft = CGRectGetMinX(columnRect),
@@ -39673,6 +39680,61 @@ class_addMethods(the_class, [new objj_method(sel_getUid("dropOperation"), functi
 }
 
 ,["void"])]);
+}
+
+{var the_class = objj_allocateClassPair(CPView, "_CPColumnDragDrawingView"),
+meta_class = the_class.isa;class_addIvars(the_class, [new objj_ivar("tableView", "CPTableView"), new objj_ivar("columnIndex", "int"), new objj_ivar("columnClipView", "CPView"), new objj_ivar("shouldDrawBorders", "BOOL"), new objj_ivar("isSelected", "BOOL")]);objj_registerClassPair(the_class);
+class_addMethods(the_class, [new objj_method(sel_getUid("tableView"), function $_CPColumnDragDrawingView__tableView(self, _cmd)
+{
+    return self.tableView;
+}
+
+,["CPTableView"]), new objj_method(sel_getUid("setTableView:"), function $_CPColumnDragDrawingView__setTableView_(self, _cmd, newValue)
+{
+    self.tableView = newValue;
+}
+
+,["void","CPTableView"]), new objj_method(sel_getUid("columnIndex"), function $_CPColumnDragDrawingView__columnIndex(self, _cmd)
+{
+    return self.columnIndex;
+}
+
+,["int"]), new objj_method(sel_getUid("setColumnIndex:"), function $_CPColumnDragDrawingView__setColumnIndex_(self, _cmd, newValue)
+{
+    self.columnIndex = newValue;
+}
+
+,["void","int"]), new objj_method(sel_getUid("columnClipView"), function $_CPColumnDragDrawingView__columnClipView(self, _cmd)
+{
+    return self.columnClipView;
+}
+
+,["CPView"]), new objj_method(sel_getUid("setColumnClipView:"), function $_CPColumnDragDrawingView__setColumnClipView_(self, _cmd, newValue)
+{
+    self.columnClipView = newValue;
+}
+
+,["void","CPView"]), new objj_method(sel_getUid("shouldDrawBorders"), function $_CPColumnDragDrawingView__shouldDrawBorders(self, _cmd)
+{
+    return self.shouldDrawBorders;
+}
+
+,["BOOL"]), new objj_method(sel_getUid("setShouldDrawBorders:"), function $_CPColumnDragDrawingView__setShouldDrawBorders_(self, _cmd, newValue)
+{
+    self.shouldDrawBorders = newValue;
+}
+
+,["void","BOOL"]), new objj_method(sel_getUid("isSelected"), function $_CPColumnDragDrawingView__isSelected(self, _cmd)
+{
+    return self.isSelected;
+}
+
+,["BOOL"]), new objj_method(sel_getUid("setIsSelected:"), function $_CPColumnDragDrawingView__setIsSelected_(self, _cmd, newValue)
+{
+    self.isSelected = newValue;
+}
+
+,["void","BOOL"])]);
 }
 
 {var the_class = objj_allocateClassPair(CPView, "CPTableCellView"),
