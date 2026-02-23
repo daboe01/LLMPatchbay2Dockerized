@@ -1572,15 +1572,9 @@ helper get_embedding => sub { my ($self, $endpoint, $model, $prompt, $template) 
         return  '['.join(', ', @{$query_embedding}).']';
     }
 
-    $ua->on(start => sub {
-        my ($ua, $tx) = @_;
-        if (my $api_key = $ENV{API_BEARER_TOKEN}) {
-            $tx->req->headers->authorization("Bearer $api_key");
-        }
-    });
-
-    my $tx = $ua->post($endpoint => json => {inputs => $prompt, truncate => Mojo::JSON->true});
-    return '['.join(', ', @{$tx->res->json->[0]}).']';
+    $model=~s/^aipier-//;
+    my $tx = $ua->post($endpoint => json => {model => $model, input => $prompt});
+    return '['.join(', ', @{$tx->res->json->{data}->[0]->{embedding}}).']';
 };
 
 helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt, $nongreedy) = @_;

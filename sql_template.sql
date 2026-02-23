@@ -650,7 +650,7 @@ COPY public.embedding_models (id, name, storage_entity, embedding_endpoint, rest
 6	mxbai-embed-large	public.embeddings_1024	http://localhost:11434/api/embeddings	\N
 7	jeffh/intfloat-multilingual-e5-large-instruct:f16	public.embeddings_1024	http://localhost:11434/api/embeddings	\N
 8	stanus74/e5-base-sts-en-de	public.embeddings_768	http://localhost:11434/api/embeddings	\N
-9	aipier-multilingual-e5-large-instruct	public.embeddings_1024	https://inference-api.metal.kn.uniklinik-freiburg.de/embedding/multilingual-e5-large-instruct/embed	\N
+9	aipier-multilingual-e5-large-instruct	public.embeddings_1024	https://inference-api.metal.kn.uniklinik-freiburg.de/v1/embeddings	\N
 \.
 
 
