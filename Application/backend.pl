@@ -933,37 +933,67 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         my $model       = $inputs->{model} || 'gemma-2-9b-it';
         my $max_tokens  = $settings->{max_new_tokens} || 4096;
         my $prompt      = $self->prepare_llm_prompt($inputs->{Input}, $inputs->{PromptTemplate});
-        my $stop_tokens = decode_json(encode 'UTF-8', $settings->{stop}) || [];
-        my $grammar     = $settings->{grammar};
 
+        my $stop_tokens;
+        if ($settings->{stop}) {
+            $stop_tokens = decode_json(encode 'UTF-8', $settings->{stop});
+        }
+
+        my $grammar = $settings->{grammar};
+
+        # 1. Standard OpenAI Chat Completions Parameters
         my $params = {
-            inputs => $prompt,
-            parameters =>
-            {
-                stop => $stop_tokens,
-                max_new_tokens => $max_tokens,
-                seed => 123,
-                repetition_penalty => 1.0
-            }
+            model       => $model,
+            messages    => [ { role => "user", content => $prompt } ],
+            max_tokens  => $max_tokens + 0, # Strict integer typecast
+            temperature => 0.0,             # Replaces do_sample => false for greedy generation
+            seed        => 123
         };
 
-        if ($grammar eq '1' || $grammar eq '2') # regexp
-        {
-            $params->{parameters}->{grammar}->{type} = $grammar eq '1' ? 'regex' : 'json';
-
-            my $json = decode_json(encode 'UTF-8', $settings->{grammar_text}) || {};
-
-            foreach my $key (keys %{$json})
-            {
-                $params->{parameters}->{grammar}->{$key} = $json->{$key};
-            }
+        if ($stop_tokens && ref $stop_tokens eq 'ARRAY' && @$stop_tokens) {
+            $params->{stop} = $stop_tokens;
         }
-        else
+
+        # 2. Handle Structured Outputs / Grammar
+        if ($grammar eq '1' || $grammar eq '2')
         {
-            $params->{parameters}->{do_sample} = Mojo::JSON->false;
+            my $json = {};
+            if ($settings->{grammar_text}) {
+                $json = decode_json(encode 'UTF-8', $settings->{grammar_text}) || {};
+            }
+
+            if ($grammar eq '2') # JSON format
+            {
+                if (keys %$json) {
+                    # Standard OpenAI JSON Schema Strict mode
+                    $params->{response_format} = {
+                        type => "json_schema",
+                        json_schema => {
+                            name   => "structured_output",
+                            strict => Mojo::JSON->true,
+                            schema => $json
+                        }
+                    };
+                } else {
+                    # Standard OpenAI Generic JSON object mode
+                    $params->{response_format} = { type => "json_object" };
+                }
+            }
+            elsif ($grammar eq '1') # Regex format
+            {
+                # Note: Official OpenAI API does not support Regex constraints.
+                # However, compatible servers (like vLLM) support it via the `guided_regex` extension.
+                if (exists $json->{value}) {
+                    $params->{guided_regex} = $json->{value};
+                } else {
+                    # Fallback if the raw regex string was just dropped into grammar_text
+                    $params->{guided_regex} = $settings->{grammar_text};
+                }
+            }
         }
 
         my $ua = Mojo::UserAgent->new;
+        $ua->insecure(1); # Added from your run_llm logic just in case
         $ua->inactivity_timeout(0);
         $ua->request_timeout(0);
         $ua->connect_timeout(0);
@@ -974,13 +1004,21 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
             }
         });
 
-        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
-        if ($tx->res->is_error) {
-          warn Dumper $tx;
-        }
-        my $r = $tx->res->json;
+        # 3. Request /v1/chat/completions
+        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/v1/chat/completions" => json => $params);
 
-        return $r->{generated_text} if exists $r->{generated_text};
+        my $res = $tx->result;
+
+        # 4. Parse Standard OpenAI Response
+        if ($res->is_success) {
+            my $r = $res->json;
+            if ($r && exists $r->{choices} && @{$r->{choices}}) {
+                return $r->{choices}->[0]->{message}->{content};
+            }
+        } else {
+            warn Dumper $res->json || $res->body; # Helpful for debugging API rejections
+        }
+
         return undef;
     }
     elsif ($current_block->{type} eq '25') # phi4, ehemals gemma-2-9b-it
@@ -1577,14 +1615,20 @@ helper get_embedding => sub { my ($self, $endpoint, $model, $prompt, $template) 
     return '['.join(', ', @{$tx->res->json->{data}->[0]->{embedding}}).']';
 };
 
-helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt, $nongreedy) = @_;
+helper run_llm => sub {
+    my ($self, $prompt, $model, $max_tokens, $system_prompt, $nongreedy) = @_;
+
     # prompt caching is important for performance
-    my $a = $self->pg->db->query(q{select response from llm_usage_log where model = ? and prompt = ? order by insertion_time desc limit 1}, $model, $prompt)->hash;
+    my $a = $self->pg->db->query(
+    q{SELECT response FROM llm_usage_log WHERE model = ? AND prompt = ? ORDER BY insertion_time DESC LIMIT 1},
+    $model, $prompt
+    )->hash;
     my $txt = $a ? $a->{response} : undef;
     return $txt if $txt;
 
     $max_tokens = 500 unless $max_tokens;
     $max_tokens = $max_tokens + 0; # typecast to int for super strict API
+
     my $text = '';
     my $ua = Mojo::UserAgent->new;
     $ua->insecure(1);
@@ -1599,102 +1643,73 @@ helper run_llm => sub { my ($self, $prompt, $model, $max_tokens, $system_prompt,
         }
     });
 
-    if ($model =~ /gemma/io)
-    {
-        my $effective_prompt = "<start_of_turn>user\n$prompt<end_of_turn>\n<start_of_turn>model\n";
-        my $stop_tokens = ['USER: ', '</s>', '<start_of_turn>', '<end_of_turn>'];
+    # 1. Build Standard OpenAI 'messages' array
+    my $messages = [];
 
-        my $params = {
-            inputs => $effective_prompt,
-            parameters =>
-            $nongreedy ?
-            {
-                stop => $stop_tokens,
-                max_new_tokens => $max_tokens,
-                temperature => 0.6,
-                top_p => 0.1,
-                repetition_penalty => 1.1,
-                top_k => 40,
-                truncate => 1900
-
-            }
-            :
-            {
-                stop => $stop_tokens,
-                max_new_tokens => $max_tokens,
-                do_sample => Mojo::JSON->false,
-                seed => 123,
-                repetition_penalty => 1.0
-            }
-        };
-
-        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
-        if ($tx->res->is_error) {
-          warn Dumper $tx;
-        }
-        my $r = $tx->res->json;
-        $text = $r->{generated_text} if exists $r->{generated_text};
-    }
-    elsif ($model =~ /phi/io)
-    {
-        my $effective_prompt = "<|im_start|>system<|im_sep|>\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user<|im_sep|>\n$prompt<|im_end|>\n<|im_start|>assistant<|im_sep|>\n";
-        my $stop_tokens = ["<|im_start|>", "<|im_end|>", "<|im_sep|>"];
-
-        my $params = {
-            inputs => $effective_prompt,
-            parameters =>
-            $nongreedy ?
-            {
-                stop => $stop_tokens,
-                max_new_tokens => $max_tokens,
-                temperature => 0.6,
-                top_p => 0.1,
-                repetition_penalty => 1.1,
-                top_k => 40,
-                truncate => 1900
-            }
-            :
-            {
-                stop => $stop_tokens,
-                max_new_tokens => $max_tokens,
-                do_sample => Mojo::JSON->false,
-                seed => 123,
-                repetition_penalty => 1.0
-            }
-        };
-
-        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/generate" => json => $params);
-        if ($tx->res->is_error) {
-          warn Dumper $tx;
-        }
-        my $r = $tx->res->json;
-        $text = $r->{generated_text} if exists $r->{generated_text};
-    }
-    elsif ($model =~ /deepseek/io)
-    {
-        my $params =    {
-            model => $model, temperature =>  $nongreedy ? 0.1 : 0.0,
-            messages => [  {  role => "user", content => $prompt }, {  role => "assistant", content => '<think>'."\n" }  ]
-        };
-
-        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/llm/$model/v1/chat/completions" => json => $params);
-        if ($tx->res->is_error) {
-          warn Dumper $tx;
-        }
-        my $res = $tx->result;
-
-        if ($res->is_success)
-        {
-            $text = $res->json->{choices}->[0]->{message}->{content};
-            $text = $1 if $text =~ /.+<\/think>\s+(.+)/osi;
-        }
+    # Determine system prompt (fallback for Phi models to original behavior if missing)
+    my $actual_sys_prompt = $system_prompt;
+    if (!$actual_sys_prompt && $model =~ /phi/io) {
+        $actual_sys_prompt = "You are a brilliant ophthalmologist.";
     }
 
-    # trim whitespace
-    $text =~s/\s+$//os;
-    $text =~s/^\s+//os;
+    if ($actual_sys_prompt) {
+        push @$messages, { role => "system", content => $actual_sys_prompt };
+    }
 
-    $self->pg->db->insert('llm_usage_log', {model => $model, prompt => $prompt, response => $text});
+    # Standard OpenAI API expects the assistant to generate the response natively,
+    # so we end with the user prompt.
+    push @$messages, { role => "user", content => $prompt };
+
+    # 2. Determine OpenAI Compliant Parameters
+    my $temperature = 0.0; # Default greedy
+    if ($nongreedy) {
+        $temperature = ($model =~ /deepseek/io) ? 0.1 : 0.6;
+    }
+
+    my $params = {
+        model       => $model,
+        messages    => $messages,
+        max_tokens  => $max_tokens,
+        temperature => $temperature,
+    };
+
+    # Add optional standardized parameters (dropping non-standard top_k, do_sample, truncate)
+    if ($nongreedy && $model =~ /phi/io) {
+        $params->{top_p} = 0.1;
+        # Standard OpenAI doesn't use `repetition_penalty`. `frequency_penalty` is the closest standard equivalent.
+        $params->{frequency_penalty} = 0.1;
+    } elsif (!$nongreedy) {
+        $params->{seed} = 123;
+    }
+
+    # 3. Issue Request
+    my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/v1/chat/completions" => json => $params);
+    my $res = $tx->result;
+
+    # 4. Parse Response
+    if ($res->is_success) {
+        my $json = $res->json;
+        if ($json && exists $json->{choices} && @{$json->{choices}}) {
+            $text = $json->{choices}->[0]->{message}->{content} // '';
+
+            # Strip DeepSeek's <think> blocks natively from the generated response string
+            if ($model =~ /deepseek/io) {
+                $text =~ s/<think>.*?<\/think>\s*//osi;
+            }
+        }
+    } else {
+        # Optional: gracefully log if the API errors out
+        # app->log->error("LLM Error: " . $res->body);
+    }
+
+    # 5. Trim whitespace
+    $text =~ s/\s+$//os;
+    $text =~ s/^\s+//os;
+
+    # Only insert into DB if we got a valid response back
+    if (length $text) {
+        $self->pg->db->insert('llm_usage_log', {model => $model, prompt => $prompt, response => $text});
+    }
 
     return $text;
 };
