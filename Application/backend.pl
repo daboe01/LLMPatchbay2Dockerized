@@ -930,7 +930,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
     elsif ($current_block->{type} eq '44') # aipier generic
     {
         my $settings    = $current_block->{output_value} ? decode_json($current_block->{output_value}) : {};
-        my $model       = $inputs->{model} || 'gemma-2-9b-it';
+        my $model       = $inputs->{model} || 'phi4';
         my $max_tokens  = $settings->{max_new_tokens} || 4096;
         my $prompt      = $self->prepare_llm_prompt($inputs->{Input}, $inputs->{PromptTemplate});
 
@@ -1005,7 +1005,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         });
 
         # 3. Request /v1/chat/completions
-        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/v1/chat/completions" => json => $params);
+        my $tx = $ua->post("$inference_proto://model-router.aipier-services:8080/v1/chat/completions" => json => $params);
 
         my $res = $tx->result;
 
@@ -1683,7 +1683,7 @@ helper run_llm => sub {
     }
 
     # 3. Issue Request
-    my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/v1/chat/completions" => json => $params);
+    my $tx = $ua->post("$inference_proto://model-router.aipier-services:8080/v1/chat/completions" => json => $params);
     my $res = $tx->result;
 
     # 4. Parse Response
