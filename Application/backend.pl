@@ -1005,9 +1005,19 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         });
 
         # 3. Request /v1/chat/completions
-        my $tx = $ua->post("$inference_proto://model-router.aipier-services:8080/v1/chat/completions" => json => $params);
+        my $tx = $ua->post("$inference_proto://inference-api.metal.kn.uniklinik-freiburg.de/v1/chat/completions" => json => $params);
 
-        my $res = $tx->result;
+        # SCHRITT 1: Auf Netzwerkfehler/Timeouts prüfen (BEVOR wir result aufrufen!)
+        if (my $err = $tx->error) {
+            # Wenn kein HTTP-Code da ist, war es ein Timeout oder Connection Refused
+            if (!$tx->res->code) {
+                $self->app->log->error("Inference API Timeout/Netzwerkfehler: " . $err->{message});
+                return "Fehler: Timeout oder Netzwerkproblem bei der LLM-Abfrage ($err->{message})";
+            }
+        }
+
+        # SCHRITT 2: Jetzt können wir sicher das Ergebnis abrufen
+        my $res = $tx->res; # Wir nutzen res statt result, das ist sicherer
 
         # 4. Parse Standard OpenAI Response
         if ($res->is_success) {
@@ -1016,7 +1026,10 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
                 return $r->{choices}->[0]->{message}->{content};
             }
         } else {
-            warn Dumper $res->json || $res->body; # Helpful for debugging API rejections
+            # SCHRITT 3: HTTP-Fehler abfangen (z.B. 400 Bad Request, 500 Server Error)
+            my $err_body = $res->body || 'Kein Body';
+            $self->app->log->error("LLM API FEHLER! HTTP Code: " . $res->code . " Body: " . $err_body);
+            return "Fehler: LLM API antwortete mit Code " . $res->code;
         }
 
         return undef;
