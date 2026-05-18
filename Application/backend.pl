@@ -1005,7 +1005,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
         });
 
         # 3. Request /v1/chat/completions
-        my $tx = $ua->post("$inference_proto://model-router.aipier-services:8080/v1/chat/completions" => json => $params);
+        my $tx = $ua->post("$inference_proto://model-router.aipier-services/v1/chat/completions" => json => $params);
 
         my $res = $tx->result;
 
