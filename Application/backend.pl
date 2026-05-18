@@ -1019,7 +1019,7 @@ helper get_result_of_block_id => sub { my ($self, $id, $input, $cache_dict) = @_
             warn Dumper $res->json || $res->body; # Helpful for debugging API rejections
         }
 
-        return Dumper $res->json || $res->body;
+        return undef;
     }
     elsif ($current_block->{type} eq '25') # phi4, ehemals gemma-2-9b-it
     {
