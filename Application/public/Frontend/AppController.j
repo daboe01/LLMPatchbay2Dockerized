@@ -219,12 +219,14 @@ BaseURL = HostURL + "/";
     id  blocksController @accessors;
     id  settingsController @accessors;
     id  globalsController @accessors;
+    id  blocksVersionsController @accessors;
     id  blockIndex;
     id  connections;
     id  addBlocksPopover;
     id  editPopover;
     id  runConnection;
     id  spinnerImg;
+
 
     id embeddingModelsController;
     id embeddedDatasetsController;

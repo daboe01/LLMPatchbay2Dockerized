@@ -22,7 +22,7 @@ SET row_security = off;
 --
 
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
-
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 --
 -- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner: 
@@ -913,3 +913,49 @@ ALTER TABLE ONLY public.output_data
 --
 -- PostgreSQL database dump complete
 --
+
+-- 1. Die neue Tabelle für die Block-Versionen (Text Constants etc.)
+CREATE TABLE public.blocks_versions (
+    id SERIAL PRIMARY KEY,
+    block_id INTEGER NOT NULL,
+    output_value TEXT,
+    content_hash TEXT NOT NULL,
+    changed_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+    
+    CONSTRAINT fk_blocks_versions_blocks 
+        FOREIGN KEY (block_id) 
+        REFERENCES public.blocks(id) ON DELETE CASCADE
+);
+
+ALTER TABLE public.blocks_versions OWNER TO postgres;
+
+-- 2. Die Trigger-Funktion für die blocks-Tabelle
+CREATE OR REPLACE FUNCTION public.log_blocks_version()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Wir prüfen hier, ob sich 'output_value' geändert hat
+    IF (TG_OP = 'INSERT') OR 
+       (TG_OP = 'UPDATE' AND NEW.output_value IS DISTINCT FROM OLD.output_value) THEN
+       
+        INSERT INTO public.blocks_versions (
+            block_id, 
+            output_value, 
+            content_hash
+        ) VALUES (
+            NEW.id,
+            NEW.output_value,
+            encode(digest(COALESCE(NEW.output_value, ''), 'sha256'), 'hex')
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+ALTER FUNCTION public.log_blocks_version() OWNER TO postgres;
+
+-- 3. Den Trigger an die blocks-Tabelle binden
+CREATE TRIGGER trigger_blocks_versioning
+AFTER INSERT OR UPDATE ON public.blocks
+FOR EACH ROW
+EXECUTE FUNCTION public.log_blocks_version();

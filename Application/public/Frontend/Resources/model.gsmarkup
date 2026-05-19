@@ -6,6 +6,7 @@
         <sortDescriptor id="by_name" key="name"/>
         <sortDescriptor id="by_id" key="id" numeric="YES"/>
         <sortDescriptor id="by_insertiontime" key="insertion_time" ascending="NO"/>
+        <sortDescriptor id="by_changed_at" key="changed_at" ascending="NO"/>
 
         <arrayController id="projects_controller" entity="projects" autoFetchSync="YES" sortDescriptor="by_name"/>
         <arrayController id="input_controller" entity="input_data" autoFetchSync="YES" sortDescriptor="by_id"/>
@@ -17,6 +18,7 @@
         <arrayController id="embedded_datasets_controller" entity="embedded_datasets" autoFetchSync="YES" sortDescriptor="by_name"/>
         <arrayController id="embedded_data_controller" entity="embedded_data" valueBinding="embedded_datasets_controller.selection.data"/>
         <arrayController id="globals_controller" entity="global_variables" autoFetchSync="YES" sortDescriptor="by_name"/>
+        <arrayController id="blocks_versions_controller" entity="blocks_versions" valueBinding="blocks_controller.selection.versions" sortDescriptor="by_changed_at"/>
     </objects>
 
 <entities>
@@ -46,6 +48,7 @@
         <column name="originY"/>
         <relationship type="toOne" name="block_type" bindingColumn="idblock" target="blocks_catalogue"/>
         <relationship type="toOne" name="settings" bindingColumn="id" target="settings"/>
+        <relationship type="toMany" name="versions" bindingColumn="id" target="blocks_versions" targetColumn="block_id"/>
     </entity>
     <entity id="settings" store="#CPOwner.store">
         <column name="id" primaryKey="YES"/>
@@ -93,6 +96,13 @@
         <column name="name"/>
         <column name="value"/>
     </entity>
+    <entity id="blocks_versions" store="#CPOwner.store">
+        <column name="id" primaryKey="YES"/>
+        <column name="block_id"/>
+        <column name="output_value"/>
+        <column name="changed_at"/>
+        <relationship type="toOne" name="block_data" bindingColumn="block_id" target="blocks"/>
+    </entity>
 </entities>
 
 <connectors>
@@ -107,6 +117,7 @@
     <outlet source="#CPOwner" target="embedded_datasets_controller" label="embeddedDatasetsController"/>
     <outlet source="#CPOwner" target="embedded_data_controller" label="embeddedDataController"/>
     <outlet source="#CPOwner" target="globals_controller" label="globalsController"/>
+    <outlet source="#CPOwner" target="blocks_versions_controller" label="blocksVersionsController"/>
 </connectors>
 
 

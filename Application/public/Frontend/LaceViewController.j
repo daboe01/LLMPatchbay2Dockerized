@@ -85,6 +85,7 @@ BaseURL=HostURL+"/";
     id _addBlocksView @accessors(property = addBlocksView);
     id _connections;
     id _blockIndex;
+    id _copyPopover;
 }
 
 + (void)connectBlock:(id)mydata toOtherBlock:(id)mydata2 usingOutletNamed:(CPString)name
@@ -220,10 +221,149 @@ BaseURL=HostURL+"/";
         effectiveView = view;
     }
     else
-        effectiveView = [_editWindow contentView];
+    {
+        var editContent = [_editWindow contentView];
+        var editSize = [editContent frame].size;
+
+        // Layout Konstanten
+        var tableHeight = 150.0;
+        var buttonHeight = 24.0;
+        var spacing = 10.0;
+
+        var wrapperWidth = MAX(400.0, editSize.width);
+        var wrapperHeight = tableHeight + spacing + buttonHeight + spacing + editSize.height;
+
+        // Wrapper View für Popover
+        var wrapperView = [[CPView alloc] initWithFrame:CGRectMake(0, 0, wrapperWidth, wrapperHeight)];
+
+        // --- 1. ScrollView & TableView für Versionen ---
+        var tableScroll = [[CPScrollView alloc] initWithFrame:CGRectMake(0, 0, wrapperWidth, tableHeight)];
+        [tableScroll setAutoresizingMask:CPViewWidthSizable];
+        [tableScroll setAutohidesScrollers:YES];
+
+        var tableView = [[CPTableView alloc] initWithFrame:[tableScroll bounds]];
+        [tableView setUsesAlternatingRowBackgroundColors:YES];
+        [tableView setCornerView:nil];
+
+        // Bindings für die Tabelle (Daten aus dem Versions-Controller)
+        [tableView bind:CPSelectionIndexesBinding toObject:CPApp._delegate.blocksVersionsController withKeyPath:@"selectionIndexes" options:nil];
+        [tableView bind:@"sortDescriptors" toObject:CPApp._delegate.blocksVersionsController withKeyPath:@"sortDescriptors" options:nil];
+
+        // Spalte: Datum
+        var colDate = [[CPTableColumn alloc] initWithIdentifier:@"changed_at"];
+        [[colDate headerView] setStringValue:@"Date"];
+        [colDate setWidth:140];[colDate setEditable:NO];
+        var dateCell = [[CPTextField alloc] initWithFrame:CGRectMakeZero()];
+        [dateCell setEditable:NO];
+        [colDate setDataView:dateCell];
+        [tableView addTableColumn:colDate];
+        [colDate bind:CPValueBinding toObject:CPApp._delegate.blocksVersionsController withKeyPath:@"arrangedObjects.changed_at" options:nil];
+
+        // Spalte: Content (Text)
+        var colContent = [[CPTableColumn alloc] initWithIdentifier:@"content"];
+        [[colContent headerView] setStringValue:@"Content Preview"];
+        [colContent setWidth:wrapperWidth - 145];
+        [colContent setEditable:NO];
+        var contentCell = [[CPTextField alloc] initWithFrame:CGRectMakeZero()];
+        [contentCell setEditable:NO];
+        [colContent setDataView:contentCell];
+        [tableView addTableColumn:colContent];
+        [colContent bind:CPValueBinding toObject:CPApp._delegate.blocksVersionsController withKeyPath:@"arrangedObjects.output_value" options:nil];
+        [tableScroll setDocumentView:tableView];
+        [wrapperView addSubview:tableScroll];
+
+        // --- 2. Button zum Wiederherstellen ---
+        var restoreBtn = [[CPButton alloc] initWithFrame:CGRectMake(0, tableHeight + spacing, 150, buttonHeight)];
+        [restoreBtn setTitle:@"Restore Selected"];
+        [restoreBtn setTarget:self];
+        [restoreBtn setAction:@selector(restoreSelectedVersion:)];
+        [wrapperView addSubview:restoreBtn];
+
+        // --- 2.5 Button zum Kopieren ---
+        var copyBtn = [[CPButton alloc] initWithFrame:CGRectMake(150 + spacing, tableHeight + spacing, 100, buttonHeight)];
+        [copyBtn setTitle:@"Copy..."];
+        [copyBtn setTarget:self];
+        [copyBtn setAction:@selector(copySelectedVersion:)];
+        [wrapperView addSubview:copyBtn];
+
+        // --- 3. Original Edit Window (Textfeld) unten anhängen ---
+        [editContent setFrameOrigin:CGPointMake(0, tableHeight + spacing + buttonHeight + spacing)];[wrapperView addSubview:editContent];
+
+        effectiveView = wrapperView;
+    }
 
     [myViewController setView:effectiveView];
     [_editPopover showRelativeToRect:aView._frame ofView:aLaceView preferredEdge:nil];
+}
+
+- (void)copySelectedVersion:(id)sender
+{
+    var selectedVersions = [CPApp._delegate.blocksVersionsController selectedObjects];
+
+    if ([selectedVersions count] == 0)
+    {
+        CPLog.info("No version selected to copy.");
+        return;
+    }
+
+    // Den Content der ausgewählten Version holen
+    var textToCopy = [selectedVersions[0] valueForKey:@"output_value"];
+
+    if (!_copyPopover)
+    {
+        _copyPopover = [CPPopover new];
+        [_copyPopover setBehavior:CPPopoverBehaviorTransient];
+        [_copyPopover setAppearance:CPPopoverAppearanceMinimal];
+        [_copyPopover setAnimates:YES];
+
+        var containerView = [[CPView alloc] initWithFrame:CGRectMake(0, 0, 400, 350)];
+
+        var scrollView = [[CPScrollView alloc] initWithFrame:[containerView bounds]];
+        [scrollView setAutoresizingMask:CPViewWidthSizable | CPViewHeightSizable];
+        [scrollView setAutohidesScrollers:YES];
+
+        _copyTextView = [[CPTextView alloc] initWithFrame:[scrollView bounds]];
+        [_copyTextView setAutoresizingMask:CPViewWidthSizable];
+        [_copyTextView setEditable:NO];
+        [_copyTextView setSelectable:YES];
+
+        [scrollView setDocumentView:_copyTextView];
+        [containerView addSubview:scrollView];
+
+        var myViewController = [CPViewController new];
+        [myViewController setView:containerView];
+        [_copyPopover setContentViewController:myViewController];
+    }
+
+    [_copyTextView setString:textToCopy || @""];
+    [_copyPopover showRelativeToRect:[sender bounds] ofView:sender preferredEdge:CPMinYEdge];
+
+    window.setTimeout(function() {[_copyTextView selectAll:self]}, 50);
+}
+
+- (void)restoreSelectedVersion:(id)sender
+{
+    var selectedVersions = [CPApp._delegate.blocksVersionsController selectedObjects];
+
+    if ([selectedVersions count] == 0)
+    {
+        CPLog.info("No version selected to restore.");
+        return;
+    }
+
+    // Den Content der ausgewählten Historien-Version holen
+    var oldContent = [selectedVersions[0] valueForKey:@"output_value"];
+
+    // Aktuell ausgewählten Block holen (z. B. den "Text constant" Block)
+    var selectedBlocks = [_blocksController selectedObjects];
+
+    if ([selectedBlocks count] > 0)
+    {
+        var currentBlock = selectedBlocks[0];
+
+        // Den alten Content wieder als output_value setzen
+        [currentBlock setValue:oldContent forKey:@"output_value"];
+    }
 }
 
 - (void)removeBlocks:(id)sender
