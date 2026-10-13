@@ -25,6 +25,19 @@ $ENV{MOJO_MAX_MESSAGE_SIZE} = 3_073_741_824;
 helper pg  => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/llm_patchbay') };
 helper pgm => sub { state $pg = Mojo::Pg->new('postgresql://docker:docker@localhost/minion') };
 
+helper shared_ua => sub {
+    state $ua = do {
+        my $client = Mojo::UserAgent->new;
+        $client->insecure(1);
+        $client->inactivity_timeout(0);
+        $client->request_timeout(0);
+        $client->connect_timeout(10);
+        $client->max_connections(100); # Allow generous connection pooling
+
+        $client;
+    };
+};
+
 #
 # begin minion setup
 #

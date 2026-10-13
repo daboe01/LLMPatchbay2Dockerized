@@ -86,6 +86,7 @@ BaseURL=HostURL+"/";
     id _connections;
     id _blockIndex;
     id _copyPopover;
+    CGSize _editContentOriginalSize;
 }
 
 + (void)connectBlock:(id)mydata toOtherBlock:(id)mydata2 usingOutletNamed:(CPString)name
@@ -178,13 +179,11 @@ BaseURL=HostURL+"/";
 
 - (void)laceView:(EFLaceView)aLaceView didDoubleClickView:(EFView)aView
 {
-
     var pk = [aView valueForKeyPath:'data.id'];
     var selectionArray = [[_blocksController arrangedObjects] filteredArrayUsingPredicate:[CPPredicate predicateWithFormat:"id = %@", pk + '']];
     var currentBlock = selectionArray[0];
     [currentBlock reload];
     [_blocksController setSelectedObjects:[currentBlock]];
-
 
     var effectiveView;
 
@@ -223,7 +222,12 @@ BaseURL=HostURL+"/";
     else
     {
         var editContent = [_editWindow contentView];
-        var editSize = [editContent frame].size;
+
+        // Originalgröße nur beim ersten Mal merken; danach ist der Frame durch Autoresizing verändert
+        if (!_editContentOriginalSize)
+            _editContentOriginalSize = CGSizeMakeCopy([editContent frame].size);
+
+        var editSize = _editContentOriginalSize;
 
         // Layout Konstanten
         var tableHeight = 150.0;
@@ -252,7 +256,8 @@ BaseURL=HostURL+"/";
         // Spalte: Datum
         var colDate = [[CPTableColumn alloc] initWithIdentifier:@"changed_at"];
         [[colDate headerView] setStringValue:@"Date"];
-        [colDate setWidth:140];[colDate setEditable:NO];
+        [colDate setWidth:140];
+        [colDate setEditable:NO];
         var dateCell = [[CPTextField alloc] initWithFrame:CGRectMakeZero()];
         [dateCell setEditable:NO];
         [colDate setDataView:dateCell];
@@ -269,6 +274,7 @@ BaseURL=HostURL+"/";
         [colContent setDataView:contentCell];
         [tableView addTableColumn:colContent];
         [colContent bind:CPValueBinding toObject:CPApp._delegate.blocksVersionsController withKeyPath:@"arrangedObjects.output_value" options:nil];
+
         [tableScroll setDocumentView:tableView];
         [wrapperView addSubview:tableScroll];
 
@@ -287,7 +293,11 @@ BaseURL=HostURL+"/";
         [wrapperView addSubview:copyBtn];
 
         // --- 3. Original Edit Window (Textfeld) unten anhängen ---
-        [editContent setFrameOrigin:CGPointMake(0, tableHeight + spacing + buttonHeight + spacing)];[wrapperView addSubview:editContent];
+        // Frame bei jedem Öffnen komplett neu setzen, nicht nur den Ursprung
+        [editContent removeFromSuperview];
+        [editContent setFrame:CGRectMake(0, tableHeight + spacing + buttonHeight + spacing, wrapperWidth, editSize.height)];
+        [editContent setAutoresizingMask:CPViewWidthSizable | CPViewHeightSizable];
+        [wrapperView addSubview:editContent];
 
         effectiveView = wrapperView;
     }
