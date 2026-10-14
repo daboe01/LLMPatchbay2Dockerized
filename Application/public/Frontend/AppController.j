@@ -70,7 +70,7 @@ BaseURL = HostURL + "/";
 
         // Progress Bar
         progressBar = [[CPProgressIndicator alloc] initWithFrame:CGRectMake(125, 4, CGRectGetWidth(aFrame) - 130, 16)];
-        [progressBar setIndeterminate:NO]; 
+        [progressBar setIndeterminate:NO];
         [progressBar setControlSize:CPRegularControlSize];
         [progressBar setMinValue:0.0];
         [self addSubview:progressBar];
@@ -111,7 +111,7 @@ BaseURL = HostURL + "/";
 
     // Calculate max value for the bar
     [progressBar setMaxValue:1];
-    
+
     // Safety check for divide by zero
     if (total > 0)
         [progressBar setDoubleValue:(failed + finished) / total];
@@ -120,7 +120,7 @@ BaseURL = HostURL + "/";
 
     // Create the label string
     var labelString = finished + "/" + total;
-    
+
     // Add active/failed info if relevant
     if (active > 0) labelString += " [" + active + " run]";
     if (failed > 0) labelString += " (" + failed + " err)";
@@ -250,6 +250,11 @@ BaseURL = HostURL + "/";
 
     CPTextView sqlInputView;
     CPTextView sqlOutputView;
+
+    // Seamless Refresh nach Duplizieren
+    id  pendingSelectProjectID;      // ID des neuen Prompts, falls vom Server geliefert
+    id  pendingSelectAfterMaxID;     // Fallback: erster Prompt mit PK > diesem Wert
+
 }
 
 - (void)initJobsPanel
@@ -272,7 +277,7 @@ BaseURL = HostURL + "/";
     // 2. ScrollView (Same as before)
     var scrollView = [[CPScrollView alloc] initWithFrame:CGRectInset([contentView bounds], 10, 10)];
     [scrollView setAutoresizingMask:CPViewWidthSizable | CPViewHeightSizable];
-    
+
     // 3. TableView
     jobsTable = [[CPTableView alloc] initWithFrame:[scrollView bounds]];
     [jobsTable setDataSource:self];
@@ -292,11 +297,11 @@ BaseURL = HostURL + "/";
     var progressColumn = [[CPTableColumn alloc] initWithIdentifier:@"progress"];
     [[progressColumn headerView] setStringValue:@"Progress (Finished/Total)"];
     [progressColumn setWidth:350.0]; // Wider for the bar
-    
+
     // Use the new DailyProgressView
     var progressProto = [[DailyProgressView alloc] initWithFrame:CGRectMake(0,0,350,26)];
     [progressColumn setDataView:progressProto];
-    
+
     [jobsTable addTableColumn:progressColumn];
 
     [scrollView setDocumentView:jobsTable];
@@ -659,25 +664,139 @@ BaseURL = HostURL + "/";
         return;
     }
 
-    if (urlString.indexOf(BaseURL + "LLM/project/import") >= 0)
+    if (someConnection.isImportProject || urlString.indexOf(BaseURL + "LLM/project/import") >= 0)
     {
-        var entity = projectsController._entity;
-        entity._pkcache = [];
-        [projectsController setContent:[entity allObjects]];
+        var res = nil;
+        try { res = JSON.parse(data); } catch (e) {}
+
+        if (res && res.err)
+        {
+            alert("Import failed:\n" + res.err);
+            return;
+        }
+
+        // Determine newly imported ID if returned by the server, otherwise fall back to max ID
+        var newID = nil;
+        if (typeof res === "number")
+            newID = res;
+        else if (res && typeof res === "object")
+            newID = res.id || res.new_id || res.pk || res.project_id;
+
+        pendingSelectProjectID  = newID || nil;
+        pendingSelectAfterMaxID = newID ? nil : [self _maxProjectID];
 
         [projectImportExportWindow orderOut:nil];
-        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Project imported." customIcon:TNGrowlIconInfo];
+        [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt imported." customIcon:TNGrowlIconInfo];
+
+        // Refreshes the entity cache, updates playground column, and selects the new project
+        [self reloadProjectsSeamlessly];
         return;
     }
 
     if (urlString.indexOf(BaseURL + "LLM/duplicate_prompt/") >= 0)
     {
+        var res = nil;
+        try { res = JSON.parse(data); } catch (e) {}
+
+        if (res && res.err)
+        {
+            alert("Duplication failed:\n" + res.err);
+            return;
+        }
+
+        // Neue Zeile merken: bevorzugt die vom Server gelieferte ID,
+        // sonst den ersten Prompt mit einer hoeheren ID als bisher
+        var newID = res ? (res.id || res.new_id || res.pk) : nil;
+        pendingSelectProjectID  = newID || nil;
+        pendingSelectAfterMaxID = newID ? nil : [self _maxProjectID];
+
         [[TNGrowlCenter defaultCenter] pushNotificationWithTitle:@"Success" message:@"Prompt duplicated." customIcon:TNGrowlIconInfo];
-        [projectsController reload];
+        [self reloadProjectsSeamlessly];
         return;
     }
 
     [outputController reload];
+}
+
+// ---------------------------------------------------------
+// Seamless Refresh nach Duplizieren
+// ---------------------------------------------------------
+
+- (void)reloadProjectsSeamlessly
+{
+    var entity = projectsController ? projectsController._entity : nil;
+
+    if (!entity)
+        return;
+
+    // PK-Cache leeren, sonst liefert der Store die alten Objekte.
+    // FSArrayController -reload frischt nur ein contentArray-Binding auf und
+    // ist ohne Binding ein No-op, daher wie bei project/import den Inhalt
+    // direkt neu setzen.
+    entity._pkcache = [];
+    [projectsController setContent:[entity allObjects]];
+
+    // Popup-Spalte im Playground mit der neuen Prompt-Liste versorgen
+    [self _refreshPlaygroundPromptColumn];
+
+    [self _selectPendingProjectWithRetries:20];
+}
+
+- (id)_maxProjectID
+{
+    var objects = [projectsController arrangedObjects],
+        pk = [projectsController pk],
+        maxID = 0;
+
+    for (var i = 0; i < [objects count]; i++)
+    {
+        var oid = parseInt([[objects objectAtIndex:i] valueForKey:pk], 10);
+        if (oid > maxID)
+            maxID = oid;
+    }
+
+    return maxID;
+}
+
+- (void)_selectPendingProjectWithRetries:(int)retries
+{
+    if (!pendingSelectProjectID && (pendingSelectAfterMaxID === nil || pendingSelectAfterMaxID === undefined))
+        return;
+
+    var objects = [projectsController arrangedObjects],
+        pk = [projectsController pk],
+        target = nil;
+
+    for (var i = 0; i < [objects count]; i++)
+    {
+        var o   = [objects objectAtIndex:i],
+            oid = [o valueForKey:pk];
+
+        if (pendingSelectProjectID ? (oid == pendingSelectProjectID)
+                                   : (parseInt(oid, 10) > pendingSelectAfterMaxID))
+        {
+            target = o;
+            break;
+        }
+    }
+
+    if (target)
+    {
+        pendingSelectProjectID  = nil;
+        pendingSelectAfterMaxID = nil;
+        [projectsController setSelectedObjects:[target]];
+    }
+    else if (retries > 0)
+    {
+        setTimeout(function() {
+            [self _selectPendingProjectWithRetries:retries - 1];
+        }, 250);
+    }
+    else
+    {
+        pendingSelectProjectID  = nil;
+        pendingSelectAfterMaxID = nil;
+    }
 }
 
 - (void)cup:(Cup)aCup uploadDidCompleteForFile:(CupFile)aFile
@@ -778,8 +897,8 @@ BaseURL = HostURL + "/";
     if (aTableView === jobsTable)
     {
         var item = jobsData[rowIndex];
-        
-        if ([[aColumn identifier] isEqualToString:@"date"]) 
+
+        if ([[aColumn identifier] isEqualToString:@"date"])
         {
             // The backend sends YYYY-MM-DD string, usually acceptable as is.
             return item.date;
@@ -795,7 +914,7 @@ BaseURL = HostURL + "/";
 - (void)runSQL:(id)sender
 {
     var sql = [sqlInputView string];
-    
+
     if (!sql || sql.length === 0) {
         alert("Please enter a SQL query.");
         return;
@@ -806,12 +925,12 @@ BaseURL = HostURL + "/";
     var myreq = [CPURLRequest requestWithURL:BaseURL + "LLM/run_raw_sql"];
     [myreq setHTTPMethod:"POST"];
     [myreq setHTTPBody:sql];
-    
+
     var connection = [CPURLConnection connectionWithRequest:myreq delegate:self];
-    
+
     // Tag this connection so we know how to handle the response
-    connection.isSQL = YES; 
-    
+    connection.isSQL = YES;
+
     [self setButtonBusy:sender];
     connection._senderButton = sender;
 }
@@ -819,7 +938,7 @@ BaseURL = HostURL + "/";
 - (void)downloadSQL:(id)sender
 {
     var sql = [sqlInputView string];
-    
+
     if (!sql || sql.length === 0) {
         alert("Please enter a SQL query.");
         return;
@@ -839,9 +958,9 @@ BaseURL = HostURL + "/";
     form.appendChild(input);
 
     document.body.appendChild(form);
-    
+
     form.submit();
-    
+
     // Clean up
     document.body.removeChild(form);
 }
